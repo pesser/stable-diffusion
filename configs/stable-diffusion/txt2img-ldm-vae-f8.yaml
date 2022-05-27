@@ -1,0 +1,130 @@
+model:
+  base_learning_rate: 1.0e-04  # TODO: run with scale_lr False
+  target: ldm.models.diffusion.ddpm.LatentDiffusion
+  params:
+    linear_start: 0.00085
+    linear_end: 0.0120
+    num_timesteps_cond: 1
+    log_every_t: 200
+    timesteps: 1000
+    first_stage_key: "jpg"
+    cond_stage_key: "txt"
+    image_size: 32
+    channels: 4
+    cond_stage_trainable: true
+    conditioning_key: crossattn
+    monitor: val/loss_simple_ema
+    scale_factor: 0.18215
+
+    scheduler_config: # 10000 warmup steps
+      target: ldm.lr_scheduler.LambdaLinearScheduler
+      params:
+        warm_up_steps: [ 10000 ]
+        cycle_lengths: [ 10000000000000 ] # incredibly large number to prevent corner cases
+        f_start: [ 1.e-6 ]
+        f_max: [ 1. ]
+        f_min: [ 1. ]
+
+    unet_config:
+      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
+      params:
+        image_size: 32
+        in_channels: 4
+        out_channels: 4
+        model_channels: 128 # 320   # TODO increase
+        attention_resolutions: [ 4, 2, 1 ]  # is equal to fixed spatial resolution: 32 , 16 , 8
+        num_res_blocks: 2
+        channel_mult: [ 1,2,4,4 ]
+        #num_head_channels: 32
+        num_heads: 8
+        use_spatial_transformer: True
+        transformer_depth: 1
+        context_dim: 1280
+        use_checkpoint: True
+
+    first_stage_config:
+      target: ldm.models.autoencoder.AutoencoderKL
+      params:
+        embed_dim: 4
+        monitor: val/rec_loss
+        ckpt_path: "/home/robin/projects/latent-diffusion/models/first_stage_models/kl-f8/model.ckpt"
+        ddconfig:
+          double_z: true
+          z_channels: 4
+          resolution: 256
+          in_channels: 3
+          out_ch: 3
+          ch: 128
+          ch_mult:
+          - 1
+          - 2
+          - 4
+          - 4
+          num_res_blocks: 2
+          attn_resolutions: []
+          dropout: 0.0
+        lossconfig:
+          target: torch.nn.Identity
+
+    cond_stage_config:
+      target: ldm.modules.encoders.modules.BERTEmbedder
+      params:
+        n_embed: 1280
+        n_layer: 3 #32 # TODO: increase
+
+
+data:
+  target: ldm.data.laion.WebDataModuleFromConfig
+  params:
+    tar_base: "pipe:aws s3 cp s3://s-datasets/laion5b/laion2B-data/"
+    batch_size: 60
+    num_workers: 4
+    n_nodes: 2  # TODO: runs with two gpus
+    train:
+      shards: '{000000..000010}.tar -'  # TODO: wild guess, change
+      image_key: jpg
+      image_transforms:
+      - target: torchvision.transforms.Resize
+        params:
+          size: 512
+          interpolation: 3
+      - target: torchvision.transforms.RandomCrop
+        params:
+          size: 512
+
+      shuffle: 5000
+      n_examples: 16519100  # TODO: find out
+    validation:
+      shards: '{000011..000012}.tar -'  # TODO: wild guess, change
+      image_key: jpg
+      image_transforms:
+      - target: torchvision.transforms.Resize
+        params:
+          size: 512
+          interpolation: 3
+      - target: torchvision.transforms.CenterCrop
+        params:
+          size: 512
+
+      shuffle: 0
+      n_examples: 60000  # TODO: find out
+    val_num_workers: 2
+
+
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 5000 # 5000
+        max_images: 8
+        increase_log_steps: False
+        log_first_step: True
+
+
+  trainer:
+    replace_sampler_ddp: False
+    benchmark: True
+    val_check_interval: 20000  # every 20k training steps
+    num_sanity_val_steps: 0
