@@ -31,16 +31,16 @@ model:
         image_size: 32
         in_channels: 4
         out_channels: 4
-        model_channels: 128 # 320   # TODO increase
-        attention_resolutions: [ 4, 2, 1 ]  # is equal to fixed spatial resolution: 32 , 16 , 8
+        model_channels: 32 # 320   # TODO increase
+        attention_resolutions: [ ]  # is equal to fixed spatial resolution: 32 , 16 , 8
         num_res_blocks: 2
-        channel_mult: [ 1,2,4,4 ]
+        channel_mult: [ 1, ]
         #num_head_channels: 32
         num_heads: 8
         use_spatial_transformer: True
         transformer_depth: 1
-        context_dim: 1280
-        use_checkpoint: True
+        context_dim: 32
+        use_checkpoint: False
 
     first_stage_config:
       target: ldm.models.autoencoder.AutoencoderKL
@@ -69,8 +69,8 @@ model:
     cond_stage_config:
       target: ldm.modules.encoders.modules.BERTEmbedder
       params:
-        n_embed: 1280
-        n_layer: 3 #32 # TODO: increase
+        n_embed: 32
+        n_layer: 1 #32 # TODO: increase
 
 
 data:
