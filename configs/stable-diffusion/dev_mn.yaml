@@ -93,8 +93,9 @@ data:
         params:
           size: 256
 
+    # NOTE use enough shards to avoid empty validation loops in workers
     validation:
-      shards: '{231340..231349}.tar -'
+      shards: '{231346..231349}.tar -'
       shuffle: 0
       image_key: jpg
       image_transforms:
@@ -112,16 +113,16 @@ lightning:
     image_logger:
       target: main.ImageLogger
       params:
-        batch_frequency: 5000 # 5000
-        max_images: 0
+        batch_frequency: 500 # 5000
+        max_images: 8
         increase_log_steps: False
-        log_first_step: True
+        log_first_step: False
 
 
   trainer:
     #replace_sampler_ddp: False
     benchmark: True
-    val_check_interval: 20000  # every 20k training steps
+    val_check_interval: 1000  # every 20k training steps
     num_sanity_val_steps: 0
 
 
