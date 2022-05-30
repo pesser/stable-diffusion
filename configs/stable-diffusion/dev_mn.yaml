@@ -77,11 +77,11 @@ data:
   target: ldm.data.laion.WebDataModuleFromConfig
   params:
     tar_base: "pipe:aws s3 cp s3://s-datasets/laion5b/laion2B-data/"
-    batch_size: 10
+    batch_size: 4
     num_workers: 4
-    n_nodes: 2
+    n_nodes: 4
     train:
-      shards: '{000000..000010}.tar -'  # TODO: wild guess, change
+      shards: '{000000..231349}.tar -'
       image_key: jpg
       image_transforms:
       - target: torchvision.transforms.Resize
@@ -92,8 +92,8 @@ data:
         params:
           size: 256
 
-      shuffle: 5000
-      n_examples: 16519100  # TODO: find out
+      shuffle: 0
+      n_examples: 100000
     validation:
       shards: '{000011..000012}.tar -'  # TODO: wild guess, change
       image_key: jpg
@@ -108,7 +108,6 @@ data:
 
       shuffle: 0
       n_examples: 60000  # TODO: find out
-    val_num_workers: 2
 
 
 
@@ -124,7 +123,7 @@ lightning:
 
 
   trainer:
-    replace_sampler_ddp: False
+    #replace_sampler_ddp: False
     benchmark: True
     val_check_interval: 20000  # every 20k training steps
     num_sanity_val_steps: 0
