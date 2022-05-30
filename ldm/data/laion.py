@@ -140,11 +140,10 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
 
         print(f'Dataset holding {len(dset.pipeline[0].urls)} shards')
 
-        def ignore_me(*args, **kwargs):
-            pass
+        from webdataset.handlers import warn_and_continue
 
         dset = (dset
-                .decode('pil', handler=ignore_me)
+                .decode('pil', handler=warn_and_continue)
                 # .to_tuple("jpg;png;jpeg pickle cls hls")
                 # .map_tuple(image_transforms,load_partial_from_config(nns_transform) if 'target' in nns_transform else identity,identity,identity)
                 .map_dict(**transform_dict)
