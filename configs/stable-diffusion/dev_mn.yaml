@@ -81,7 +81,8 @@ data:
     num_workers: 4
     n_nodes: 4
     train:
-      shards: '{000000..231349}.tar -'
+      shards: '{000000..231339}.tar -'
+      shuffle: 10000
       image_key: jpg
       image_transforms:
       - target: torchvision.transforms.Resize
@@ -92,10 +93,9 @@ data:
         params:
           size: 256
 
-      shuffle: 0
-      n_examples: 100000
     validation:
-      shards: '{000011..000012}.tar -'  # TODO: wild guess, change
+      shards: '{231340..231349}.tar -'
+      shuffle: 0
       image_key: jpg
       image_transforms:
       - target: torchvision.transforms.Resize
@@ -105,10 +105,6 @@ data:
       - target: torchvision.transforms.CenterCrop
         params:
           size: 256
-
-      shuffle: 0
-      n_examples: 60000  # TODO: find out
-
 
 
 lightning:
