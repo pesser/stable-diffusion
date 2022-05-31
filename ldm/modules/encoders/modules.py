@@ -119,7 +119,7 @@ class FrozenT5Embedder(AbstractEncoder):
 
     def freeze(self):
         self.transformer = self.transformer.eval()
-        self.train = disabled_train
+        #self.train = disabled_train
         for param in self.parameters():
             param.requires_grad = False
 
@@ -148,7 +148,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
 
     def freeze(self):
         self.transformer = self.transformer.eval()
-        self.train = disabled_train
+        #self.train = disabled_train
         for param in self.parameters():
             param.requires_grad = False
 
