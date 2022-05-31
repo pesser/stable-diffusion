@@ -145,11 +145,12 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         dset = wds.WebDataset(
                 tars,
                 nodesplitter=nodesplitter,
-                shardshuffle=shardshuffle).shuffle(shuffle)
+                shardshuffle=shardshuffle,
+                handler=wds.warn_and_continue).shuffle(shuffle)
         print(f'Loading webdataset with {len(dset.pipeline[0].urls)} shards.')
 
         dset = (dset
-                .decode('pil', handler=warn_and_continue)
+                .decode('pil', handler=wds.warn_and_continue)
                 .map_dict(**transform_dict, handler=wds.warn_and_continue)
                 .batched(self.batch_size, partial=False,
                          collation_fn=dict_collation_fn)
