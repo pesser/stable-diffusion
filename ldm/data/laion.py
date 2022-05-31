@@ -150,7 +150,7 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
 
         dset = (dset
                 .decode('pil', handler=warn_and_continue)
-                .map_dict(**transform_dict)
+                .map_dict(**transform_dict, handler=wds.warn_and_continue)
                 .batched(self.batch_size, partial=False,
                          collation_fn=dict_collation_fn)
                 )
