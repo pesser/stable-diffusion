@@ -90,19 +90,19 @@ data:
         params:
           size: 256
 
-#    # NOTE use enough shards to avoid empty validation loops in workers
-#    validation:
-#      shards: '{231318..231349}.tar -'
-#      shuffle: 0
-#      image_key: jpg
-#      image_transforms:
-#      - target: torchvision.transforms.Resize
-#        params:
-#          size: 256
-#          interpolation: 3
-#      - target: torchvision.transforms.CenterCrop
-#        params:
-#          size: 256
+    # NOTE use enough shards to avoid empty validation loops in workers
+    validation:
+      shards: '{231318..231349}.tar -'
+      shuffle: 0
+      image_key: jpg
+      image_transforms:
+      - target: torchvision.transforms.Resize
+        params:
+          size: 256
+          interpolation: 3
+      - target: torchvision.transforms.CenterCrop
+        params:
+          size: 256
 
 
 lightning:
@@ -119,6 +119,6 @@ lightning:
   trainer:
     #replace_sampler_ddp: False
     benchmark: True
-    #val_check_interval: 50000
-    #num_sanity_val_steps: 0
+    val_check_interval: 5000000  # really sorry
+    num_sanity_val_steps: 0
     accumulate_grad_batches: 2
