@@ -18,7 +18,7 @@ from webdataset.handlers import warn_and_continue
 from ldm.util import instantiate_from_config
 
 
-class DataWithWings(data.IterableDataset):
+class DataWithWings(torch.utils.data.IterableDataset):
     def __init__(self, min_size, transform=None, target_transform=None):
         self.min_size = min_size
         self.transform = transform if transform is not None else nn.Identity()
