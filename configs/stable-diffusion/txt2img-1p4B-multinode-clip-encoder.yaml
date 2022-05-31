@@ -74,7 +74,7 @@ data:
   target: ldm.data.laion.WebDataModuleFromConfig
   params:
     tar_base: "pipe:aws s3 cp s3://s-datasets/laion5b/laion2B-data/"
-    batch_size: 56
+    batch_size: 50
     num_workers: 4
     multinode: True
     train:
