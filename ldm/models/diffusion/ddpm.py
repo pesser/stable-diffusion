@@ -1194,7 +1194,9 @@ class LatentDiffusion(DDPM):
             if isinstance(xc, dict) or isinstance(xc, list):
                 c = self.get_learned_conditioning(xc)
             else:
-                c = self.get_learned_conditioning(xc.to(self.device))
+                if hasattr(xc, "to"):
+                    xc = xc.to(self.device)
+                c = self.get_learned_conditioning(xc)
         else:
             # todo: get null label from cond_stage_model
             raise NotImplementedError()
