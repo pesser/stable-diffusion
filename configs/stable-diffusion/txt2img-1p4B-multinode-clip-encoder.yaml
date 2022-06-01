@@ -121,7 +121,7 @@ lightning:
           plot_diffusion_rows: False
           N: 4
           unconditional_guidance_scale: 3.0
-          unconditional_guidance_label: ""
+          unconditional_guidance_label: [""]
 
   trainer:
     #replace_sampler_ddp: False
