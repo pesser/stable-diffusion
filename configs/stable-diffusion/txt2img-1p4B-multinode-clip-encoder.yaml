@@ -110,11 +110,17 @@ lightning:
     image_logger:
       target: main.ImageLogger
       params:
-        batch_frequency: 5000
-        max_images: 8
+        batch_frequency: 50
+        max_images: 4
         increase_log_steps: False
         log_first_step: False
-
+        log_images_kwargs:
+          inpaint: False
+          plot_progressive_rows: False
+          plot_diffusion_rows: False
+          N: 4
+          unconditional_guidance_scale: 3.0
+          unconditional_guidance_label: ""
 
   trainer:
     #replace_sampler_ddp: False
