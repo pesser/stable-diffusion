@@ -115,6 +115,7 @@ lightning:
         increase_log_steps: False
         log_first_step: False
         log_images_kwargs:
+          inpaint: False
           plot_progressive_rows: False
           plot_diffusion_rows: False
           N: 4
