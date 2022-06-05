@@ -12,6 +12,10 @@ class AbstractEncoder(nn.Module):
     def encode(self, *args, **kwargs):
         raise NotImplementedError
 
+class IdentityEncoder(AbstractEncoder):
+
+    def encode(self, x):
+        return x
 
 
 class ClassEmbedder(nn.Module):
