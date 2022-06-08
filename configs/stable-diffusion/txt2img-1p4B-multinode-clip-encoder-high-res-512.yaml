@@ -9,7 +9,7 @@ model:
     timesteps: 1000
     first_stage_key: "jpg"
     cond_stage_key: "txt"
-    image_size: 32
+    image_size: 64
     channels: 4
     cond_stage_trainable: false   # Note: different from the one we trained before
     conditioning_key: crossattn
@@ -28,7 +28,7 @@ model:
     unet_config:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModel
       params:
-        image_size: 32
+        image_size: 32 # unused
         in_channels: 4
         out_channels: 4
         model_channels: 320
