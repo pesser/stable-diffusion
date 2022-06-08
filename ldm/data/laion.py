@@ -253,4 +253,19 @@ def example01():
 
 
 if __name__ == "__main__":
-    example01()
+    #example01()
+    from omegaconf import OmegaConf
+    from torch.utils.data.distributed import DistributedSampler
+    from torch.utils.data import IterableDataset
+    from torch.utils.data import DataLoader, RandomSampler, Sampler, SequentialSampler
+    from pytorch_lightning.trainer.supporters import CombinedLoader, CycleIterator
+
+
+    config = OmegaConf.load("configs/stable-diffusion/txt2img-1p4B-multinode-clip-encoder-high-res-512.yaml")
+    datamod = WebDataModuleFromConfig(**config["data"]["params"])
+    dataloader = datamod.train_dataloader()
+
+    for batch in dataloader:
+        print(batch.keys())
+        print(batch["jpg"].shape)
+        break
