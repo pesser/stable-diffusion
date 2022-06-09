@@ -1280,39 +1280,39 @@ class LatentDiffusion(DDPM):
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_x0_quantized"] = x_samples
 
-            if unconditional_guidance_scale > 1.0:
-                uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
-                with ema_scope("Sampling with classifier-free guidance"):
-                    samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
-                                                     ddim_steps=ddim_steps, eta=ddim_eta,
-                                                     unconditional_guidance_scale=unconditional_guidance_scale,
-                                                     unconditional_conditioning=uc,
-                                                     )
-                    x_samples_cfg = self.decode_first_stage(samples_cfg)
-                    log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
+        if unconditional_guidance_scale > 1.0:
+            uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
+            with ema_scope("Sampling with classifier-free guidance"):
+                samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
+                                                 ddim_steps=ddim_steps, eta=ddim_eta,
+                                                 unconditional_guidance_scale=unconditional_guidance_scale,
+                                                 unconditional_conditioning=uc,
+                                                 )
+                x_samples_cfg = self.decode_first_stage(samples_cfg)
+                log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
 
-            if inpaint:
-                # make a simple center square
-                b, h, w = z.shape[0], z.shape[2], z.shape[3]
-                mask = torch.ones(N, h, w).to(self.device)
-                # zeros will be filled in
-                mask[:, h // 4:3 * h // 4, w // 4:3 * w // 4] = 0.
-                mask = mask[:, None, ...]
-                with ema_scope("Plotting Inpaint"):
+        if inpaint:
+            # make a simple center square
+            b, h, w = z.shape[0], z.shape[2], z.shape[3]
+            mask = torch.ones(N, h, w).to(self.device)
+            # zeros will be filled in
+            mask[:, h // 4:3 * h // 4, w // 4:3 * w // 4] = 0.
+            mask = mask[:, None, ...]
+            with ema_scope("Plotting Inpaint"):
 
-                    samples, _ = self.sample_log(cond=c,batch_size=N,ddim=use_ddim, eta=ddim_eta,
-                                                ddim_steps=ddim_steps, x0=z[:N], mask=mask)
-                x_samples = self.decode_first_stage(samples.to(self.device))
-                log["samples_inpainting"] = x_samples
-                log["mask"] = mask
+                samples, _ = self.sample_log(cond=c,batch_size=N,ddim=use_ddim, eta=ddim_eta,
+                                            ddim_steps=ddim_steps, x0=z[:N], mask=mask)
+            x_samples = self.decode_first_stage(samples.to(self.device))
+            log["samples_inpainting"] = x_samples
+            log["mask"] = mask
 
-                # outpaint
-                mask = 1. - mask
-                with ema_scope("Plotting Outpaint"):
-                    samples, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,eta=ddim_eta,
-                                                ddim_steps=ddim_steps, x0=z[:N], mask=mask)
-                x_samples = self.decode_first_stage(samples.to(self.device))
-                log["samples_outpainting"] = x_samples
+            # outpaint
+            mask = 1. - mask
+            with ema_scope("Plotting Outpaint"):
+                samples, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,eta=ddim_eta,
+                                            ddim_steps=ddim_steps, x0=z[:N], mask=mask)
+            x_samples = self.decode_first_stage(samples.to(self.device))
+            log["samples_outpainting"] = x_samples
 
         if plot_progressive_rows:
             with ema_scope("Plotting Progressives"):
