@@ -154,7 +154,7 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         dset = (dset
                 .select(self.filter_keys)
                 .decode('pil', handler=wds.warn_and_continue)
-                .select(self.filter_sizes)
+                .select(self.filter_size)
                 .map_dict(**transform_dict, handler=wds.warn_and_continue)
                 .batched(self.batch_size, partial=False,
                          collation_fn=dict_collation_fn)
