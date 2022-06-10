@@ -45,23 +45,18 @@ model:
     first_stage_config:
       target: ldm.models.autoencoder.AutoencoderKL
       params:
-        embed_dim: 4
+        embed_dim: 16
         monitor: val/rec_loss
         ckpt_path: "models/first_stage_models/kl-f16/model.ckpt"
         ddconfig:
-          double_z: true
-          z_channels: 4
+          z_channels: 16
           resolution: 256
           in_channels: 3
           out_ch: 3
           ch: 128
-          ch_mult:
-          - 1
-          - 2
-          - 4
-          - 4
+          ch_mult: [ 1,1,2,2,4 ]  # num_down = len(ch_mult)-1
           num_res_blocks: 2
-          attn_resolutions: []
+          attn_resolutions: [ 16 ]
           dropout: 0.0
         lossconfig:
           target: torch.nn.Identity
