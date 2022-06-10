@@ -235,9 +235,14 @@ class CocoImagesAndCaptionsValidation2014(CocoBase):
         return '2014'
 
 if __name__ == '__main__':
+    with open("data/coco/annotations2014/annotations/captions_val2014.json", "r") as json_file:
+        json_data = json.load(json_file)
+        capdirs = json_data["annotations"]
+        import pudb; pudb.set_trace()
+    #d2 = CocoImagesAndCaptionsTrain2014(size=256)
     d2 = CocoImagesAndCaptionsValidation2014(size=256)
-    print("construced val set.")
-    print(f"length of train split: {len(d2)}")
+    print("constructed dataset.")
+    print(f"length of {d2.__class__.__name__}: {len(d2)}")
 
     ex2 = d2[0]
     # ex3 = d3[0]
