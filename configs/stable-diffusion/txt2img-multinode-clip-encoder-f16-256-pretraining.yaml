@@ -49,6 +49,7 @@ model:
         monitor: val/rec_loss
         ckpt_path: "models/first_stage_models/kl-f16/model.ckpt"
         ddconfig:
+          double_z: True
           z_channels: 16
           resolution: 256
           in_channels: 3
