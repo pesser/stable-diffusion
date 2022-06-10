@@ -2,6 +2,7 @@ model:
   base_learning_rate: 1.0e-04
   target: ldm.models.diffusion.ddpm.LatentDiffusion
   params:
+    ckpt_path: "/home/mchorse/stable-diffusion-ckpts/256pretrain-2022-06-09.ckpt"
     linear_start: 0.00085
     linear_end: 0.0120
     num_timesteps_cond: 1
@@ -47,7 +48,6 @@ model:
       params:
         embed_dim: 4
         monitor: val/rec_loss
-        ckpt_path: "models/first_stage_models/kl-f8/model.ckpt"
         ddconfig:
           double_z: true
           z_channels: 4
@@ -74,7 +74,7 @@ data:
   target: ldm.data.laion.WebDataModuleFromConfig
   params:
     tar_base: "pipe:aws s3 cp s3://s-datasets/laion-high-resolution/"
-    batch_size: 50
+    batch_size: 4
     num_workers: 4
     multinode: True
     train:
