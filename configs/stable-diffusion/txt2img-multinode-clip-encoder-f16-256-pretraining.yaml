@@ -70,7 +70,7 @@ data:
   target: ldm.data.laion.WebDataModuleFromConfig
   params:
     tar_base: "pipe:aws s3 cp s3://s-datasets/laion5b/laion2B-data/"
-    batch_size: 50  # TODO: max out
+    batch_size: 55
     num_workers: 4
     multinode: True
     min_size: 256   # TODO: experiment. Note: for 2B, images are stored at max 384 resolution
@@ -124,4 +124,4 @@ lightning:
     benchmark: True
     val_check_interval: 5000000  # really sorry
     num_sanity_val_steps: 0
-    accumulate_grad_batches: 2  # TODO: want accumulate on? --> wait for final batch-size
+    accumulate_grad_batches: 2
