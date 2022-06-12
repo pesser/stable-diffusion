@@ -138,6 +138,11 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         img_key = dataset_config.get('image_key', 'jpeg')
         transform_dict.update({img_key: image_transforms})
 
+        if 'postprocess' in dataset_config:
+            postprocess = instantiate_from_config(dataset_config['postprocess'])
+        else:
+            postprocess = None
+
         shuffle = dataset_config.get('shuffle', 0)
         shardshuffle = shuffle > 0
 
@@ -156,8 +161,12 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
                 .decode('pil', handler=wds.warn_and_continue)
                 .select(self.filter_size)
                 .map_dict(**transform_dict, handler=wds.warn_and_continue)
+                )
+        if postprocess is not None:
+            dset = dset.map(postprocess)
+        dset = (dset
                 .batched(self.batch_size, partial=False,
-                         collation_fn=dict_collation_fn)
+                    collation_fn=dict_collation_fn)
                 )
 
         loader = wds.WebLoader(dset, batch_size=None, shuffle=False,
@@ -187,6 +196,29 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
 
     def test_dataloader(self):
         return self.make_loader(self.test, train=False)
+
+
+from ldm.modules.image_degradation import degradation_fn_bsr_light
+
+class AddLR(object):
+    def __init__(self, factor):
+        self.factor = factor
+
+    def pt2np(self, x):
+        x = ((x+1.0)*127.5).clamp(0, 255).to(dtype=torch.uint8).detach().cpu().numpy()
+        return x
+
+    def np2pt(self, x):
+        x = torch.from_numpy(x)/127.5-1.0
+        return x
+
+    def __call__(self, sample):
+        # sample['jpg'] is tensor hwc in [-1, 1] at this point
+        x = self.pt2np(sample['jpg'])
+        x = degradation_fn_bsr_light(x, sf=self.factor)['image']
+        x = self.np2pt(x)
+        sample['lr'] = x
+        return sample
 
 
 def example00():
@@ -270,7 +302,8 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader, RandomSampler, Sampler, SequentialSampler
     from pytorch_lightning.trainer.supporters import CombinedLoader, CycleIterator
 
-    config = OmegaConf.load("configs/stable-diffusion/txt2img-1p4B-multinode-clip-encoder-high-res-512.yaml")
+    #config = OmegaConf.load("configs/stable-diffusion/txt2img-1p4B-multinode-clip-encoder-high-res-512.yaml")
+    config = OmegaConf.load("configs/stable-diffusion/txt2img-upscale-clip-encoder-f16-1024.yaml")
     datamod = WebDataModuleFromConfig(**config["data"]["params"])
     dataloader = datamod.train_dataloader()
 
