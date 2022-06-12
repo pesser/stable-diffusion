@@ -368,7 +368,7 @@ class ImageNetSR(Dataset):
 
         example["image"] = (image/127.5 - 1.0).astype(np.float32)
         example["LR_image"] = (LR_image/127.5 - 1.0).astype(np.float32)
-
+        example["caption"] = example["human_label"]  # dummy caption
         return example
 
 

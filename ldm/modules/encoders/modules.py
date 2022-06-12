@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from functools import partial
 
 from ldm.modules.x_transformer import Encoder, TransformerWrapper  # TODO: can we directly rely on lucidrains code and simply add this as a reuirement? --> test
+from ldm.util import default
 
 
 class AbstractEncoder(nn.Module):
@@ -199,6 +201,60 @@ class SpatialRescaler(nn.Module):
 
     def encode(self, x):
         return self(x)
+
+
+from ldm.util import instantiate_from_config
+from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_tensor, noise_like
+
+
+class LowScaleEncoder(nn.Module):
+    def __init__(self, model_config, linear_start, linear_end, timesteps=1000, max_noise_level=250, output_size=64):
+        super().__init__()
+        self.max_noise_level = max_noise_level
+        self.model = instantiate_from_config(model_config)
+        self.augmentation_schedule = self.register_schedule(timesteps=timesteps, linear_start=linear_start,
+                                                            linear_end=linear_end)
+        self.out_size = output_size
+
+    def register_schedule(self, beta_schedule="linear", timesteps=1000,
+                          linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
+        betas = make_beta_schedule(beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end,
+                                   cosine_s=cosine_s)
+        alphas = 1. - betas
+        alphas_cumprod = np.cumprod(alphas, axis=0)
+        alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
+
+        timesteps, = betas.shape
+        self.num_timesteps = int(timesteps)
+        self.linear_start = linear_start
+        self.linear_end = linear_end
+        assert alphas_cumprod.shape[0] == self.num_timesteps, 'alphas have to be defined for each timestep'
+
+        to_torch = partial(torch.tensor, dtype=torch.float32)
+
+        self.register_buffer('betas', to_torch(betas))
+        self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
+        self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
+
+        # calculations for diffusion q(x_t | x_{t-1}) and others
+        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
+        self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
+        self.register_buffer('log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
+        self.register_buffer('sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
+        self.register_buffer('sqrt_recipm1_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod - 1)))
+
+    def q_sample(self, x_start, t, noise=None):
+        noise = default(noise, lambda: torch.randn_like(x_start))
+        return (extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
+                extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise)
+
+    def forward(self, x):
+        z = self.model.encode(x).sample()
+        noise_level = torch.randint(0, self.max_noise_level, (x.shape[0],), device=x.device).long()
+        z = self.q_sample(z, noise_level)
+        #z = torch.nn.functional.interpolate(z, size=self.out_size, mode="nearest")  # TODO: experiment with mode
+        z = z.repeat_interleave(2, -2).repeat_interleave(2, -1)
+        return z, noise_level
 
 
 if __name__ == "__main__":
