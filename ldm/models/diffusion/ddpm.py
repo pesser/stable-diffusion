@@ -1476,6 +1476,9 @@ class LatentUpscaleDiffusion(LatentDiffusion):
         all_conds = {"c_concat": [zx], "c_crossattn": [c], "c_adm": noise_level}
         if log_mode:
             # TODO: maybe disable if too expensive
+            interpretability = True
+            if interpretability:
+                zx = zx[:, :, ::2, ::2]
             x_low_rec = self.low_scale_model.decode(zx)
             return z, all_conds, x, xrec, xc, x_low, x_low_rec, noise_level
         return z, all_conds
