@@ -24,7 +24,7 @@ model:
         linear_start: 0.00085
         linear_end: 0.0120
         timesteps: 1000
-        max_noise_level: 250
+        max_noise_level: 100
         output_size: 64
         model_config:
           target: ldm.models.autoencoder.AutoencoderKL

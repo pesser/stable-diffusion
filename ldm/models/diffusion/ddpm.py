@@ -1543,7 +1543,18 @@ class LatentUpscaleDiffusion(LatentDiffusion):
                 log["denoise_row"] = denoise_grid
 
         if unconditional_guidance_scale > 1.0:
-            uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
+            uc_tmp = self.get_unconditional_conditioning(N, unconditional_guidance_label)
+            # TODO explore better "unconditional" choices for the other keys
+            uc = dict()
+            for k in c:
+                if k == "c_crossattn":
+                    assert isinstance(c[k], list) and len(c[k]) == 1
+                    uc[k] = [uc_tmp]
+                elif isinstance(c[k], list):
+                    uc[k] = [torch.zeros_like(c[k][i]) for i in range(len(c[k]))]
+                else:
+                    uc[k] = torch.zeros_like(c[k])
+
             with ema_scope("Sampling with classifier-free guidance"):
                 samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
                                                  ddim_steps=ddim_steps, eta=ddim_eta,
