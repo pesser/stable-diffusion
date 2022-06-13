@@ -208,13 +208,15 @@ from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_t
 
 
 class LowScaleEncoder(nn.Module):
-    def __init__(self, model_config, linear_start, linear_end, timesteps=1000, max_noise_level=250, output_size=64):
+    def __init__(self, model_config, linear_start, linear_end, timesteps=1000, max_noise_level=250, output_size=64,
+                 scale_factor=1.0):
         super().__init__()
         self.max_noise_level = max_noise_level
         self.model = instantiate_from_config(model_config)
         self.augmentation_schedule = self.register_schedule(timesteps=timesteps, linear_start=linear_start,
                                                             linear_end=linear_end)
         self.out_size = output_size
+        self.scale_factor = scale_factor
 
     def register_schedule(self, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
@@ -250,11 +252,16 @@ class LowScaleEncoder(nn.Module):
 
     def forward(self, x):
         z = self.model.encode(x).sample()
+        z = z * self.scale_factor
         noise_level = torch.randint(0, self.max_noise_level, (x.shape[0],), device=x.device).long()
         z = self.q_sample(z, noise_level)
         #z = torch.nn.functional.interpolate(z, size=self.out_size, mode="nearest")  # TODO: experiment with mode
         z = z.repeat_interleave(2, -2).repeat_interleave(2, -1)
         return z, noise_level
+
+    def decode(self, z):
+        z = z / self.scale_factor
+        return self.model.decode(z)
 
 
 if __name__ == "__main__":

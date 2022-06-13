@@ -20,6 +20,7 @@ model:
     low_scale_config:
       target: ldm.modules.encoders.modules.LowScaleEncoder
       params:
+        scale_factor: 0.18215
         linear_start: 0.00085
         linear_end: 0.0120
         timesteps: 1000
