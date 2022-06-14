@@ -1553,6 +1553,9 @@ class LatentUpscaleDiffusion(LatentDiffusion):
                 if k == "c_crossattn":
                     assert isinstance(c[k], list) and len(c[k]) == 1
                     uc[k] = [uc_tmp]
+                elif k == "c_adm":
+                    assert isinstance(c[k], torch.Tensor)
+                    uc[k] = torch.ones_like(c[k]) * (self.low_scale_model.max_max_noise_level-1)
                 elif isinstance(c[k], list):
                     uc[k] = [torch.zeros_like(c[k][i]) for i in range(len(c[k]))]
                 else:
