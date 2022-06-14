@@ -759,6 +759,9 @@ if __name__ == "__main__":
             del callbacks_cfg['ignore_keys_callback']
 
         trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
+        if not lightning_config.get("find_unused_parameters", True):
+            from pytorch_lightning.plugins import DDPPlugin
+            trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir  ###
