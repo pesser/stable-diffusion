@@ -1,5 +1,5 @@
 model:
-  base_learning_rate: 1.0e-04
+  base_learning_rate: 5.0e-05
   target: ldm.models.diffusion.ddpm.LatentUpscaleDiffusion
   params:
     low_scale_key: "lr"
@@ -66,10 +66,11 @@ model:
         image_size: 64    # not really needed
         in_channels: 20
         out_channels: 16
-        model_channels: 192
-        attention_resolutions: [ 4, 2, 1 ]
+        model_channels: 96
+        attention_resolutions: [ 8, 4, 2 ] # -> at 32, 16, 8
         num_res_blocks: 2
-        channel_mult: [ 1, 2, 4, 4 ]
+        channel_mult: [ 1, 2, 4, 8, 8 ]
+        # -> res, ds: (64, 1), (32, 2), (16, 4), (8, 8), (4, 16)
         num_heads: 8
         use_spatial_transformer: True
         transformer_depth: 1
@@ -105,7 +106,7 @@ data:
   target: ldm.data.laion.WebDataModuleFromConfig
   params:
     tar_base: "pipe:aws s3 cp s3://s-datasets/laion-high-resolution/"
-    batch_size: 8
+    batch_size: 10
     num_workers: 4
     train:
       shards: '{00000..17279}.tar -'
@@ -143,6 +144,8 @@ data:
                       factor: 4
 
 lightning:
+  find_unused_parameters: False
+
   callbacks:
     image_logger:
       target: main.ImageLogger
