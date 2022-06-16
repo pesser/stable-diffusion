@@ -1548,6 +1548,7 @@ class LatentUpscaleDiffusion(LatentDiffusion):
         if unconditional_guidance_scale > 1.0:
             uc_tmp = self.get_unconditional_conditioning(N, unconditional_guidance_label)
             # TODO explore better "unconditional" choices for the other keys
+            # maybe guide away from empty text label and highest noise level and maximally degraded zx?
             uc = dict()
             for k in c:
                 if k == "c_crossattn":
