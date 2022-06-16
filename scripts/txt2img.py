@@ -7,6 +7,7 @@ from tqdm import tqdm, trange
 from itertools import islice
 from einops import rearrange
 from torchvision.utils import make_grid
+import time
 
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -64,6 +65,12 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--skip_save",
+        action='store_true',
+        help="do not save indiviual samples. For speed measurements.",
+    )
+
+    parser.add_argument(
         "--ddim_steps",
         type=int,
         default=50,
@@ -101,6 +108,19 @@ if __name__ == "__main__":
         type=int,
         default=256,
         help="image width, in pixel space",
+    )
+
+    parser.add_argument(
+        "--C",
+        type=int,
+        default=4,
+        help="latent channels",
+    )
+    parser.add_argument(
+        "--f",
+        type=int,
+        default=8,
+        help="downsampling factor, most often 8 or 16",
     )
 
     parser.add_argument(
@@ -184,6 +204,7 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         with model.ema_scope():
+            tic = time.time()
             for n in trange(opt.n_iter, desc="Sampling"):
                 all_samples = list()
                 for prompts in tqdm(data, desc="data"):
@@ -193,7 +214,7 @@ if __name__ == "__main__":
                     if isinstance(prompts, tuple):
                         prompts = list(prompts)
                     c = model.get_learned_conditioning(prompts)
-                    shape = [4, opt.H//8, opt.W//8]
+                    shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
                     samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                      conditioning=c,
                                                      batch_size=opt.n_samples,
@@ -207,10 +228,11 @@ if __name__ == "__main__":
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
                     x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
 
-                    for x_sample in x_samples_ddim:
-                        x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                        Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, f"{base_count:05}.png"))
-                        base_count += 1
+                    if not opt.skip_save:
+                        for x_sample in x_samples_ddim:
+                            x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                            Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, f"{base_count:05}.png"))
+                            base_count += 1
                     all_samples.append(x_samples_ddim)
 
                 if not opt.skip_grid:
@@ -224,4 +246,8 @@ if __name__ == "__main__":
                     Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'grid-{grid_count:04}.png'))
                     grid_count += 1
 
-    print(f"Your samples are ready and waiting for you here: \n{outpath} \nEnjoy.")
+            toc = time.time()
+
+    print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
+          f"Sampling took {toc-tic}s, i.e. produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
+          f" \nEnjoy.")
