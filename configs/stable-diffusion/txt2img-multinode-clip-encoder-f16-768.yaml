@@ -16,7 +16,7 @@ model:
     monitor: val/loss_simple_ema
     scale_factor: 0.22765929   # magic number
   
-    ckpt_path: # TODO: add
+    ckpt_path: "/home/mchorse/stable-diffusion-ckpts/256f16-2022-06-15-216k-pruned.ckpt"
 
     scheduler_config: # 10000 warmup steps
       target: ldm.lr_scheduler.LambdaLinearScheduler
@@ -49,7 +49,6 @@ model:
       params:
         embed_dim: 16
         monitor: val/rec_loss
-        ckpt_path: "models/first_stage_models/kl-f16/model.ckpt"
         ddconfig:
           double_z: True
           z_channels: 16
