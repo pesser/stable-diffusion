@@ -7,6 +7,7 @@ from functools import partial
 from einops import rearrange
 
 from ldm.modules.diffusionmodules.util import make_ddim_sampling_parameters, make_ddim_timesteps, noise_like
+from ldm.models.diffusion.sampling_util import renorm_thresholding, norm_thresholding, spatial_norm_thresholding
 
 
 class DDIMSampler(object):
@@ -216,30 +217,7 @@ class DDIMSampler(object):
             pred_x0, _, *_ = self.model.first_stage_model.quantize(pred_x0)
 
         if dynamic_threshold is not None:
-            # renorm
-            pred_max = pred_x0.max()
-            pred_min = pred_x0.min()
-            pred_x0 = (pred_x0-pred_min)/(pred_max-pred_min)   # 0 ... 1
-            pred_x0 = 2*pred_x0 - 1.   # -1 ... 1
-
-            s = torch.quantile(
-                rearrange(pred_x0, 'b ... -> b (...)').abs(),
-                dynamic_threshold,
-                dim=-1
-            )
-            s.clamp_(min=1.0)
-            s = s.view(-1, *((1,) * (pred_x0.ndim - 1)))
-
-            # clip by threshold
-            #pred_x0 = pred_x0.clamp(-s, s) / s  # needs newer pytorch  # TODO bring back to pure-gpu with min/max
-
-            # temporary hack: numpy on cpu
-            pred_x0 = np.clip(pred_x0.cpu().numpy(), -s.cpu().numpy(), s.cpu().numpy()) / s.cpu().numpy()
-            pred_x0 = torch.tensor(pred_x0).to(self.model.device)
-
-            # re.renorm
-            pred_x0 = (pred_x0 + 1.) / 2.   # 0 ... 1
-            pred_x0 = (pred_max-pred_min)*pred_x0 + pred_min  # orig range
+            pred_x0 = norm_thresholding(pred_x0, dynamic_threshold)
 
         # direction pointing to x_t
         dir_xt = (1. - a_prev - sigma_t**2).sqrt() * e_t

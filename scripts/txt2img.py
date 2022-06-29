@@ -8,6 +8,7 @@ from itertools import islice
 from einops import rearrange
 from torchvision.utils import make_grid
 import time
+from pytorch_lightning import seed_everything
 
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -167,8 +168,14 @@ if __name__ == "__main__":
         default="logs/f8-kl-clip-encoder-256x256-run1/checkpoints/last.ckpt",
         help="path to checkpoint of model",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="the seed (for reproducible sampling)",
+    )
     opt = parser.parse_args()
-
+    seed_everything(opt.seed)
 
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
@@ -205,8 +212,8 @@ if __name__ == "__main__":
     with torch.no_grad():
         with model.ema_scope():
             tic = time.time()
+            all_samples = list()
             for n in trange(opt.n_iter, desc="Sampling"):
-                all_samples = list()
                 for prompts in tqdm(data, desc="data"):
                     uc = None
                     if opt.scale != 1.0:
@@ -235,16 +242,16 @@ if __name__ == "__main__":
                             base_count += 1
                     all_samples.append(x_samples_ddim)
 
-                if not opt.skip_grid:
-                    # additionally, save as grid
-                    grid = torch.stack(all_samples, 0)
-                    grid = rearrange(grid, 'n b c h w -> (n b) c h w')
-                    grid = make_grid(grid, nrow=n_rows)
+            if not opt.skip_grid:
+                # additionally, save as grid
+                grid = torch.stack(all_samples, 0)
+                grid = rearrange(grid, 'n b c h w -> (n b) c h w')
+                grid = make_grid(grid, nrow=n_rows)
 
-                    # to image
-                    grid = 255. * rearrange(grid, 'c h w -> h w c').cpu().numpy()
-                    Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'grid-{grid_count:04}.png'))
-                    grid_count += 1
+                # to image
+                grid = 255. * rearrange(grid, 'c h w -> h w c').cpu().numpy()
+                Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'grid-{grid_count:04}.png'))
+                grid_count += 1
 
             toc = time.time()
 
