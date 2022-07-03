@@ -9,5 +9,5 @@ to run:
 
 ```
 conda activate ldm
-python3 server.py -n "1" -p "5656" -rh eden-dev-gene-redis -rp "6379"
+python3 server.py --num-workers 1 --port 5656 --redis-host eden-dev-gene-redis --redis-port 6379
 ```
