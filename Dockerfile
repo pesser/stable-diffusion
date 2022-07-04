@@ -15,8 +15,9 @@ RUN apt-get -y update && apt-get -y upgrade
 WORKDIR /usr/local/eden
 COPY . .
 
-# install the others
-RUN ./setup.sh
+# install stable-diffusion
+# gdown {model_link} -O {ckpt}
+RUN conda env create -f environment.yaml
 
 # command to run on container start
 ENTRYPOINT [ "python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-stable-diffusion", "--redis-port", "6379" ]
