@@ -67,6 +67,10 @@ jobs:
           context: .
           push: true #${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.prep.outputs.tagged_image }},${{ steps.prep.outputs.image }}:latest
+          secrets: |
+            "BUCKET_URL=${{ secrets.BUCKET_URL }}"
+            "BUCKET_USER=${{ secrets.BUCKET_USER }}"
+            "BUCKET_PASSWORD=${{ secrets.BUCKET_PASSWORD }}"
       - run: |
           buildevents step $TRACE_ID $STEP_ID $STEP_START 'build-and-push'
   deploy:
