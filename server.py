@@ -70,14 +70,14 @@ def run_stable_diffusion(config):
         n_rows = 0,
         scale = 5.0,
         config = "logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml",
-        ckpt = "myModel.ckpt",
+        ckpt = "f16-33k+12k-hr_pruned.ckpt",
         seed = 42
     )
 
-    result = generate(opt)
+    #result = generate(opt)
 
     return {
-        "completion": result
+        "completion": 'stable diffusion is almost working'
     }
 
 
