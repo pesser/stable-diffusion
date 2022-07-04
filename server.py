@@ -76,8 +76,11 @@ def run_stable_diffusion(config):
 
     #result = generate(opt)
 
+    result = f'{prompt} => stable diffusion is almost working'
+    print("result:", result)
+
     return {
-        "completion": 'stable diffusion is almost working'
+        "completion": result
     }
 
 
