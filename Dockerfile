@@ -23,6 +23,8 @@ RUN conda env create -f environment.yaml
 RUN conda run -n ldm pip install eden-python
 RUN conda run -n ldm pip install torchmetrics==0.6.0
 RUN conda init bash
+
+SHELL ["/bin/bash", "-c"] 
 RUN source ~/.bashrc 
 
 
