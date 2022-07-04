@@ -23,5 +23,4 @@ RUN pip install eden-python
 WORKDIR /usr/local/eden
 COPY . .
 
-# command to run on container start
 ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-diffusion-redis", "--redis-port", "6379"]
