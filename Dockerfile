@@ -13,14 +13,14 @@ RUN apt-get -y update && apt-get -y upgrade
 RUN apt-get install -y git wget curl libgl1-mesa-glx libglib2.0-0
 RUN rm -rf /opt/conda/
 
+# copy the content of the local src directory to the working directory
+WORKDIR /usr/local/eden
+COPY . .
+
 # requirements for stable-diffusion
 RUN pip install -r requirements.txt
 RUN pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip install eden-python
 #RUN gdown {model_link} -O {ckpt}
-
-# copy the content of the local src directory to the working directory
-WORKDIR /usr/local/eden
-COPY . .
 
 ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-diffusion-redis", "--redis-port", "6379"]
