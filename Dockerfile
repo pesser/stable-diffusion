@@ -10,23 +10,17 @@ RUN dpkg -i cuda-keyring_1.0-1_all.deb
 RUN rm -f /etc/apt/sources.list.d/cuda.list /etc/apt/apt.conf.d/99allow_unauth cuda-keyring_1.0-1_all.deb
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC F60F4B3D7FA2AF80
 RUN apt-get -y update && apt-get -y upgrade
-RUN apt-get install -y git wget curl libgl1-mesa-glx libglib2.0-0 libsndfile1-dev
-RUN pip install gdown
+RUN apt-get install -y git wget curl libgl1-mesa-glx libglib2.0-0
+
+# requirements for stable-diffusion
+RUN pip install -r requirements.txt
+RUN pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip install eden-python
 #RUN gdown {model_link} -O {ckpt}
 
 # copy the content of the local src directory to the working directory
 WORKDIR /usr/local/eden
 COPY . .
 
-# install stable-diffusion
-RUN conda env create -f environment.yaml
-RUN conda run -n ldm pip install eden-python
-RUN conda run -n ldm pip install torchmetrics==0.6.0
-RUN conda init bash
-RUN source ~/.bashrc 
-
-
 # command to run on container start
-ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-stable-diffusion-redis", "--redis-port", "6379"]
-
-#conda run -n ldm python server.py --num-workers 1 --port 5656 --redis-host eden-dev-gene-redis --redis-port 6379
+ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-diffusion-redis", "--redis-port", "6379"]

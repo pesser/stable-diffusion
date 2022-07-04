@@ -10,8 +10,10 @@ test-tube>=0.7.5
 streamlit>=0.73.1
 einops==0.3.0
 torch-fidelity==0.3.0
+torchtext==0.10.0
 transformers==4.19.2
 webdataset==0.2.5
+gdown==4.5.1
 -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
 -e git+https://github.com/openai/CLIP.git@main#egg=clip
 -e .

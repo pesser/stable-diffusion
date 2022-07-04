@@ -13,6 +13,8 @@ config = {
 # start the task
 run_response = c.run(config)
 
+print(run_response)
+
 # check status of the task, returns the output too if the task is complete
 results = c.fetch(token=run_response["token"])
 print(results)

@@ -1,6 +1,9 @@
 import argparse
 import os
 import random
+
+import time
+
 import string
 
 from eden.block import Block
@@ -75,7 +78,7 @@ def run_stable_diffusion(config):
     # )
 
     # #result = generate(opt)
-
+    time.sleep(15)
     result = f'{prompt} => stable diffusion is almost working'
     print("result:", result)
 
