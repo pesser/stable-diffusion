@@ -22,11 +22,11 @@ COPY . .
 RUN conda env create -f environment.yaml
 RUN conda run -n ldm pip install eden-python
 RUN conda run -n ldm pip install torchmetrics==0.6.0
-RUN conda init zsh
-
+RUN conda init bash
+RUN source ~/.bashrc 
 
 
 # command to run on container start
-ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-stable-diffusion", "--redis-port", "6379"]
+ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-stable-diffusion-redis", "--redis-port", "6379"]
 
-#conda run -n ldm python server.py --num-workers 1 --port 5656 --redis-host eden-dev-gene --redis-port 6379
+#conda run -n ldm python server.py --num-workers 1 --port 5656 --redis-host eden-dev-gene-redis --redis-port 6379
