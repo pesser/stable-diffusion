@@ -17,7 +17,7 @@ parser.add_argument('-l', '--logfile', help='filename of log file', required=Fal
 args = parser.parse_args()
 
 
-from generate import *
+#from generate import *
 
 from dataclasses import dataclass, field
 
@@ -53,28 +53,28 @@ def run_stable_diffusion(config):
     prompt = config["prompt"]
     
     
-    opt = StableDiffusionSettings(
-        prompt = prompt,
-        outdir = 'test_dir',
-        skip_grid = False,
-        skip_save = False,
-        ddim_steps = 50,
-        plms = True,
-        ddim_eta = 0.0,
-        n_iter = 1,
-        H = 256,
-        W = 256,
-        C = 4,
-        f = 8,
-        n_samples = 8,
-        n_rows = 0,
-        scale = 5.0,
-        config = "logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml",
-        ckpt = "f16-33k+12k-hr_pruned.ckpt",
-        seed = 42
-    )
+    # opt = StableDiffusionSettings(
+    #     prompt = prompt,
+    #     outdir = 'test_dir',
+    #     skip_grid = False,
+    #     skip_save = False,
+    #     ddim_steps = 50,
+    #     plms = True,
+    #     ddim_eta = 0.0,
+    #     n_iter = 1,
+    #     H = 256,
+    #     W = 256,
+    #     C = 4,
+    #     f = 8,
+    #     n_samples = 8,
+    #     n_rows = 0,
+    #     scale = 5.0,
+    #     config = "logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml",
+    #     ckpt = "f16-33k+12k-hr_pruned.ckpt",
+    #     seed = 42
+    # )
 
-    #result = generate(opt)
+    # #result = generate(opt)
 
     result = f'{prompt} => stable diffusion is almost working'
     print("result:", result)
