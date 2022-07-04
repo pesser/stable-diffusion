@@ -1,0 +1,131 @@
+name: Build And Deploy
+
+on:
+  push:
+    #branches:
+    # - 'main'
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build
+    runs-on: self-hosted
+    outputs:
+      tag: ${{ steps.prep.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Buildevents
+        uses: kvrhdn/gha-buildevents@v1
+        with:
+          apikey: ${{ secrets.BUILDEVENTS_APIKEY }}
+          dataset: continuous-deployment
+          job-status: ${{ job.status }}
+          matrix-key: ${{ matrix.value }}
+
+      # Build-Step-0-prep-variables
+      - run: |
+          echo "STEP_ID=0" >> $GITHUB_ENV
+          echo "STEP_START=$(date +%s)" >> $GITHUB_ENV
+      - id: prep
+        run: |
+          TAG=$(echo $GITHUB_SHA | head -c7)
+          IMAGE="registry.aws.abraham.fun/abraham-ai/eden-${{ secrets.ENV }}"
+          echo ::set-output name=tagged_image::${IMAGE}:${TAG}
+          echo ::set-output name=tag::${TAG}
+          echo ::set-output name=image::${IMAGE}
+      - run: |
+          buildevents step $TRACE_ID $STEP_ID $STEP_START 'prep-variables'
+      # Build-Step-1-login-docker
+      - run: |
+          echo "STEP_ID=1" >> $GITHUB_ENV
+          echo "STEP_START=$(date +%s)" >> $GITHUB_ENV
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          registry: registry.aws.abraham.fun
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - run: |
+          buildevents step $TRACE_ID $STEP_ID $STEP_START 'login-docker'
+      - run: docker context create builders
+      # Use docker-container builder driver.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          driver: docker
+
+      # Build-Step-2-build-and-push
+      - run: |
+          echo "STEP_ID=2" >> $GITHUB_ENV
+          echo "STEP_START=$(date +%s)" >> $GITHUB_ENV
+      - name: Build and Push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true #${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.prep.outputs.tagged_image }},${{ steps.prep.outputs.image }}:latest
+      - run: |
+          buildevents step $TRACE_ID $STEP_ID $STEP_START 'build-and-push'
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-20.04
+    needs: [build]
+    if: ${{ always() && (needs.build.result == 'success') }}
+    steps:
+      - name: Buildevents
+        uses: kvrhdn/gha-buildevents@v1
+        with:
+          apikey: ${{ secrets.BUILDEVENTS_APIKEY }}
+          dataset: continuous-deployment
+          job-status: ${{ job.status }}
+          matrix-key: ${{ matrix.value }}
+
+      - name: Check out releases repo
+        uses: actions/checkout@v2
+        with:
+          repository: abraham-ai/releases
+          ref: main
+          token: ${{ secrets.ONE1ZERO1ONE_PAT }}
+
+      # Deploy-Step-0-prep-variables
+      - run: |
+          echo "STEP_ID=0" >> $GITHUB_ENV
+          echo "STEP_START=$(date +%s)" >> $GITHUB_ENV
+      - id: prep
+        run: |
+          IMAGE="registry.aws.abraham.fun/abraham-ai/eden-${{ secrets.ENV }}"
+          echo ::set-output name=tagged_image::${IMAGE}:${{ needs.build.outputs.tag }}
+          echo ::set-output name=tag::${{ needs.build.outputs.tag }}
+          echo ::set-output name=image::${IMAGE}
+      - run: |
+          buildevents step $TRACE_ID $STEP_ID $STEP_START 'prep-variables'
+      # Deploy-Step-1-bump-up-eden-env
+      - run: |
+          echo "STEP_ID=1" >> $GITHUB_ENV
+          echo "STEP_START=$(date +%s)" >> $GITHUB_ENV
+      - name: Bump Env
+        uses: fjogeleit/yaml-update-action@main
+        with:
+          valueFile: "apps/eden/eden-prod-environments/values.yaml"
+          updateFile: true
+          propertyPath: "$.environments[?(@.name=='${{ secrets.ENV }}')].image"
+          value: ${{ steps.prep.outputs.tagged_image }}
+          repository: abraham-ai/releases
+          branch: main
+          targetBranch: main
+          masterBranchName: main
+          commitChange: true
+          createPR: false
+          message: "Update ${{ secrets.ENV }} Image Version to ${{ steps.prep.outputs.tagged_image }}"
+          token: ${{ secrets.ONE1ZERO1ONE_PAT }}
+      - run: |
+          buildevents step $TRACE_ID $STEP_ID $STEP_START 'bump-up-${{ secrets.ENV }}'
+      - name: Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        uses: Ilshidur/action-discord@master
+        with:
+          args: "${{ secrets.ENV }} image ${{ steps.prep.outputs.tagged_image }} has been deployed."
