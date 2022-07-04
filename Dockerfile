@@ -10,13 +10,15 @@ RUN dpkg -i cuda-keyring_1.0-1_all.deb
 RUN rm -f /etc/apt/sources.list.d/cuda.list /etc/apt/apt.conf.d/99allow_unauth cuda-keyring_1.0-1_all.deb
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC F60F4B3D7FA2AF80
 RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get install -y git wget curl
+RUN pip install gdown
+#RUN gdown {model_link} -O {ckpt}
 
 # copy the content of the local src directory to the working directory
 WORKDIR /usr/local/eden
 COPY . .
 
 # install stable-diffusion
-# gdown {model_link} -O {ckpt}
 RUN conda env create -f environment.yaml
 
 # command to run on container start
