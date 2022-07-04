@@ -33,6 +33,6 @@ RUN --mount=type=secret,id=BUCKET_URL \
     ./mc alias set eden $BUCKET_URL $BUCKET_USER $BUCKET_PASSWORD
 
 # download model (previously #RUN gdown {model_link} -O {ckpt})
-RUN ./mc cp eden/models/test/test .
+RUN ./mc cp eden/models/eden_diffusion/f16-33k+12k-hr_pruned.ckpt .
 
 ENTRYPOINT ["python", "server.py", "--num-workers", "1", "--port", "5656" "--redis-host", "eden-diffusion-redis", "--redis-port", "6379"]
