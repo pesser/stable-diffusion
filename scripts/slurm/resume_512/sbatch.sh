@@ -3,6 +3,7 @@
 #SBATCH --job-name=stable-diffusion-512cont
 #SBATCH --nodes=24
 #SBATCH --gpus-per-node=8
+#SBATCH --cpus-per-gpu=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --output=%x_%j.%n.out
 
@@ -35,4 +36,4 @@ echo MASTER_ADDR=${MASTER_ADDR}
 echo MASTER_PORT=${MASTER_PORT}
 echo WORLD_SIZE=${WORLD_SIZE}
 
-srun bash /fsx/stable-diffusion/stable-diffusion/scripts/slurm/resume_512/launcher.sh
+srun --output=%x_%j.%n.out bash /fsx/stable-diffusion/stable-diffusion/scripts/slurm/resume_512/launcher.sh
