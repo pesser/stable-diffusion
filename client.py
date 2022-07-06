@@ -7,7 +7,9 @@ c = Client(url="http://0.0.0.0:5656", username="abraham")
 
 ## define input args to be sent
 config = {
-    "prompt": "hello stable diffusion"
+    "prompt": "a pink schoolbus underwater",
+    "n_samples": 1,
+    "ddim_steps": 200
 }
 
 # start the task
@@ -20,8 +22,17 @@ results = c.fetch(token=run_response["token"])
 print(results)
 
 # one eternity later
-time.sleep(2)
+#time.sleep(10)
 
 ## check status again, hopefully the task is complete by now
-results = c.fetch(token=run_response["token"])
-print(results)
+while True:
+    print("FETCH")
+    results = c.fetch(token=run_response["token"])
+    print(results)
+    # if 'output' in results:
+    #     if results['output']:
+    #         results['output']['creation1'].save('progress.png')
+    #         idxr+=1
+    time.sleep(5)
+
+

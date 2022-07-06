@@ -2,7 +2,7 @@ import argparse, os, sys, glob
 import torch
 import numpy as np
 from omegaconf import OmegaConf
-from PIL import Image
+import PIL
 from tqdm import tqdm, trange
 from itertools import islice
 from einops import rearrange
@@ -14,6 +14,11 @@ from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+model = None
+config = None
+sampler = None
 
 def chunk(it, size):
     it = iter(it)
@@ -39,45 +44,41 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
-def run_diffusion(opt):
-    seed_everything(opt.seed)
+def run_diffusion(opt, callback=None, callback_every=1):
+    
+    global model, sampler
+    if model is None:        
+        config = OmegaConf.load(f"{opt.config}")
+        model = load_model_from_config(config, f"{opt.ckpt}")
+        model = model.to(device)
+        if opt.plms:
+            sampler = PLMSSampler(model)
+        else:
+            sampler = DDIMSampler(model)
 
-    config = OmegaConf.load(f"{opt.config}")
-    model = load_model_from_config(config, f"{opt.ckpt}")
-
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
-
-    if opt.plms:
-        sampler = PLMSSampler(model)
-    else:
-        sampler = DDIMSampler(model)
-
-    os.makedirs(opt.outdir, exist_ok=True)
-    outpath = opt.outdir
-
+    # seed_everything(opt.seed)
+    
     batch_size = opt.n_samples
-    n_rows = opt.n_rows if opt.n_rows > 0 else batch_size
-    if not opt.from_file:
-        prompt = opt.prompt
-        assert prompt is not None
-        data = [batch_size * [prompt]]
 
-    else:
-        print(f"reading prompts from {opt.from_file}")
-        with open(opt.from_file, "r") as f:
-            data = f.read().splitlines()
-            data = list(chunk(data, batch_size))
+    prompt = opt.prompt
+    assert prompt is not None
+    data = [batch_size * [prompt]]
+        
+    all_samples = list()
 
-    sample_path = os.path.join(outpath, "samples")
-    os.makedirs(sample_path, exist_ok=True)
-    base_count = len(os.listdir(sample_path))
-    grid_count = len(os.listdir(outpath)) - 1
-
+    def inner_callback(img, i):
+        if i % callback_every != 0:
+            return
+        current_samples = []
+        x_samples_ddim = model.decode_first_stage(img)
+        x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+        for x_sample in x_samples_ddim:
+            x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+            current_samples.append(x_sample.astype(np.uint8))
+        callback(current_samples, i)
+    
     with torch.no_grad():
         with model.ema_scope():
-            tic = time.time()
-            all_samples = list()
             for n in trange(opt.n_iter, desc="Sampling"):
                 for prompts in tqdm(data, desc="data"):
                     uc = None
@@ -88,6 +89,7 @@ def run_diffusion(opt):
                     c = model.get_learned_conditioning(prompts)
                     shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
                     samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
+                                                     img_callback=inner_callback if callback else None,
                                                      conditioning=c,
                                                      batch_size=opt.n_samples,
                                                      shape=shape,
@@ -100,26 +102,9 @@ def run_diffusion(opt):
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
                     x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
 
-                    if not opt.skip_save:
-                        for x_sample in x_samples_ddim:
-                            x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                            Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, f"{base_count:05}.png"))
-                            base_count += 1
-                    all_samples.append(x_samples_ddim)
+                    for x_sample in x_samples_ddim:
+                        x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                        all_samples.append(x_sample.astype(np.uint8))
 
-            if not opt.skip_grid:
-                # additionally, save as grid
-                grid = torch.stack(all_samples, 0)
-                grid = rearrange(grid, 'n b c h w -> (n b) c h w')
-                grid = make_grid(grid, nrow=n_rows)
-
-                # to image
-                grid = 255. * rearrange(grid, 'c h w -> h w c').cpu().numpy()
-                Image.fromarray(grid.astype(np.uint8)).save(os.path.join(outpath, f'grid-{grid_count:04}.png'))
-                grid_count += 1
-
-            toc = time.time()
-
-    print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
-          f"Sampling took {toc-tic}s, i.e. produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
-          f" \nEnjoy.")
+    return all_samples
+    

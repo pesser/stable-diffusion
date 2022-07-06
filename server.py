@@ -7,6 +7,7 @@ from generate import *
 
 from eden.block import Block
 from eden.hosting import host_block
+from eden.datatypes import Image
 
 eden_block = Block()
 
@@ -22,9 +23,6 @@ args = parser.parse_args()
 @dataclass
 class StableDiffusionSettings:
     prompt: str = "a painting of a virus monster playing guitar"
-    outdir: str = "outputs/txt2img-samples"
-    skip_grid: bool = False
-    skip_save: bool = False
     ddim_steps: int = 50
     plms: bool = False
     ddim_eta: float = 0.0
@@ -34,43 +32,59 @@ class StableDiffusionSettings:
     C: int = 4
     f: int = 8    
     n_samples: int = 8
-    n_rows: int = 0
     scale: float = 5.0
     dyn: float = None
-    from_file: str = None
     config: str = "logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml"
     ckpt: str = "logs/f8-kl-clip-encoder-256x256-run1/checkpoints/last.ckpt"
     seed: int = 42
 
 
+def convert_samples_to_eden(samples):
+    results = {}
+    for s, sample in enumerate(samples):
+        results[f'creation{s+1}'] = Image(sample)
+    return results
+
+
 my_args = {
-    "prompt": "Hello world",    
+    "prompt": "Hello world", 
+    "width": 512,
+    "height": 512,
+    "n_samples": 1,
+    "n_iter": 1,
+    "scale": 5.0,
+    "ddim_steps": 50,
+    "plms": True
 }
+
 @eden_block.run(args=my_args)
 def run(config):
     
-    prompt = config["prompt"]
-    
-    opt1 = StableDiffusionSettings(
-        prompt=prompt,
-        outdir="results",
-        scale=5.0,
-        plms=True,
-        n_samples=4,
-        n_iter=1,
-        ckpt="f16-33k+12k-hr_pruned.ckpt",
-        config="configs/stable-diffusion/txt2img-multinode-clip-encoder-f16-768-laion-hr-inference.yaml",
-        C=16,
-        f=16,
-        H=512,
-        W=512
+    settings = StableDiffusionSettings(
+        prompt = config["prompt"],
+        ddim_steps = config["ddim_steps"],
+        scale = config["scale"],
+        plms = config["plms"],
+        n_samples = config["n_samples"],
+        n_iter = config["n_iter"],
+        ckpt = "f16-33k+12k-hr_pruned.ckpt",
+        config = "configs/stable-diffusion/txt2img-multinode-clip-encoder-f16-768-laion-hr-inference.yaml",
+        C = 16,
+        f = 16,
+        H = config["width"],
+        W = config["height"]
     )
 
-    result = run_diffusion(opt1)
+    def callback(current_samples, i):
+        config.progress.update(1 / settings.ddim_steps)
+        intermediate_results = convert_samples_to_eden(current_samples)
+        eden_block.write_results(output=intermediate_results, token=config.token)
 
-    return {
-        "completion": result
-    }
+    final_samples = run_diffusion(settings, callback=callback, callback_every=1)
+    results = convert_samples_to_eden(final_samples)
+    
+    return results
+
 
 
 host_block(
