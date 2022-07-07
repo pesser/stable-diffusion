@@ -22,7 +22,7 @@ args = parser.parse_args()
 
 @dataclass
 class StableDiffusionSettings:
-    prompt: str = "a painting of a virus monster playing guitar"
+    text_input: str = "a painting of a virus monster playing guitar"
     ddim_steps: int = 50
     plms: bool = False
     ddim_eta: float = 0.0
@@ -47,7 +47,7 @@ def convert_samples_to_eden(samples):
 
 
 my_args = {
-    "prompt": "Hello world", 
+    "text_input": "Hello world", 
     "width": 512,
     "height": 512,
     "n_samples": 1,
@@ -61,7 +61,7 @@ my_args = {
 def run(config):
     
     settings = StableDiffusionSettings(
-        prompt = config["prompt"],
+        text_input = config["text_input"],
         ddim_steps = config["ddim_steps"],
         scale = config["scale"],
         plms = config["plms"],

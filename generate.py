@@ -60,7 +60,7 @@ def run_diffusion(opt, callback=None, callback_every=1):
     
     batch_size = opt.n_samples
 
-    prompt = opt.prompt
+    prompt = opt.text_input
     assert prompt is not None
     data = [batch_size * [prompt]]
         
