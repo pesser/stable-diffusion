@@ -39,11 +39,14 @@ class StableDiffusionSettings:
     seed: int = 42
 
 
-def convert_samples_to_eden(samples):
+def convert_samples_to_eden(samples, intermediate=False):
     results = {}
-    for s, sample in enumerate(samples):
-        results[f'creation{s+1}'] = Image(sample)
-    results['creation'] = Image(samples[0])
+    if intermediate:
+        results['intermediate_creation'] = Image(samples[0])
+    else:
+        for s, sample in enumerate(samples):
+            results[f'creation{s+1}'] = Image(sample)
+        results['creation'] = Image(samples[0])    
     return results
 
 
@@ -78,7 +81,7 @@ def run(config):
 
     def callback(current_samples, i):
         config.progress.update(1 / settings.ddim_steps)
-        intermediate_results = convert_samples_to_eden(current_samples)
+        intermediate_results = convert_samples_to_eden(current_samples, intermediate=True)
         eden_block.write_results(output=intermediate_results, token=config.token)
 
     final_samples = run_diffusion(settings, callback=callback, callback_every=10)
