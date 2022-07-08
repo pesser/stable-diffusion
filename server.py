@@ -81,12 +81,13 @@ def run(config):
         H = config["height"] - (config["height"] % 128)
     )
 
-    def callback(current_samples, i):
+    def callback(intermediate_samples, i):
         config.progress.update(1 / settings.ddim_steps)
-        intermediate_results = convert_samples_to_eden(current_samples, intermediate=True)
-        eden_block.write_results(output=intermediate_results, token=config.token)
+        if intermediate_samples:
+            intermediate_results = convert_samples_to_eden(intermediate_samples, intermediate=True)
+            eden_block.write_results(output=intermediate_results, token=config.token)
 
-    final_samples = run_diffusion(settings, callback=callback, callback_every=10)
+    final_samples = run_diffusion(settings, callback=callback, update_image_every=10)
     results = convert_samples_to_eden(final_samples)
     
     return results

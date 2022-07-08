@@ -44,7 +44,7 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
-def run_diffusion(opt, callback=None, callback_every=1):
+def run_diffusion(opt, callback=None, update_image_every=1):
     
     global model, sampler
     if model is None:        
@@ -67,15 +67,15 @@ def run_diffusion(opt, callback=None, callback_every=1):
     all_samples = list()
 
     def inner_callback(img, i):
-        if i % callback_every != 0:
-            return
-        current_samples = []
-        x_samples_ddim = model.decode_first_stage(img)
-        x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
-        for x_sample in x_samples_ddim:
-            x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-            current_samples.append(x_sample.astype(np.uint8))
-        callback(current_samples, i)
+        intermediate_samples = None
+        if i % update_image_every != 0:
+            intermediate_samples = []
+            x_samples_ddim = model.decode_first_stage(img)
+            x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+            for x_sample in x_samples_ddim:
+                x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                intermediate_samples.append(x_sample.astype(np.uint8))
+        callback(intermediate_samples, i)
     
     with torch.no_grad():
         with model.ema_scope():
