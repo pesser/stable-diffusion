@@ -58,7 +58,9 @@ my_args = {
     "n_iter": 1,
     "scale": 5.0,
     "ddim_steps": 50,
-    "plms": True
+    "plms": True,
+    "C": 16,
+    "f": 8
 }
 
 @eden_block.run(args=my_args)
@@ -73,10 +75,10 @@ def run(config):
         n_iter = config["n_iter"],
         ckpt = "f16-33k+12k-hr_pruned.ckpt",
         config = "configs/stable-diffusion/txt2img-multinode-clip-encoder-f16-768-laion-hr-inference.yaml",
-        C = 16,
-        f = 16,
-        H = config["width"],
-        W = config["height"]
+        C = config['C'],
+        f = config['f'],
+        W = config["width"] - (config["width"] % 128),
+        H = config["height"] - (config["heght"] % 128)
     )
 
     def callback(current_samples, i):
