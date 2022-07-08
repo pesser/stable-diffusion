@@ -81,7 +81,7 @@ def run(config):
         intermediate_results = convert_samples_to_eden(current_samples)
         eden_block.write_results(output=intermediate_results, token=config.token)
 
-    final_samples = run_diffusion(settings, callback=callback, callback_every=1)
+    final_samples = run_diffusion(settings, callback=callback, callback_every=10)
     results = convert_samples_to_eden(final_samples)
     
     return results
