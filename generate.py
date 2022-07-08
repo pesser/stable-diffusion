@@ -18,7 +18,6 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 
 model = None
 config = None
-sampler = None
 
 def chunk(it, size):
     it = iter(it)
@@ -46,15 +45,16 @@ def load_model_from_config(config, ckpt, verbose=False):
 
 def run_diffusion(opt, callback=None, update_image_every=1):
     
-    global model, sampler
+    global model
     if model is None:        
         config = OmegaConf.load(f"{opt.config}")
         model = load_model_from_config(config, f"{opt.ckpt}")
         model = model.to(device)
-        if opt.plms:
-            sampler = PLMSSampler(model)
-        else:
-            sampler = DDIMSampler(model)
+    
+    if opt.plms:
+        sampler = PLMSSampler(model)
+    else:
+        sampler = DDIMSampler(model)
 
     # seed_everything(opt.seed)
     
