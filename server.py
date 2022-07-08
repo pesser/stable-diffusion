@@ -78,7 +78,7 @@ def run(config):
         C = config['C'],
         f = config['f'],
         W = config["width"] - (config["width"] % 128),
-        H = config["height"] - (config["heght"] % 128)
+        H = config["height"] - (config["height"] % 128)
     )
 
     def callback(current_samples, i):
