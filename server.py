@@ -43,6 +43,7 @@ def convert_samples_to_eden(samples):
     results = {}
     for s, sample in enumerate(samples):
         results[f'creation{s+1}'] = Image(sample)
+    results['creation'] = Image(samples[0])
     return results
 
 
