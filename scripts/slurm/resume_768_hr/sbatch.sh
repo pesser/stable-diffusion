@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=compute-od-gpu
-#SBATCH --job-name=stable-diffusion-512cont-improvedaesthetics
+#SBATCH --job-name=stable-diffusion-768cont-resumehr
 #SBATCH --nodes=20
 #SBATCH --gpus-per-node=8
 #SBATCH --cpus-per-gpu=4
@@ -36,4 +36,4 @@ echo MASTER_ADDR=${MASTER_ADDR}
 echo MASTER_PORT=${MASTER_PORT}
 echo WORLD_SIZE=${WORLD_SIZE}
 
-srun --output=%x_%j.%n.out bash /fsx/stable-diffusion/stable-diffusion/scripts/slurm/resume_512/launcher.sh
+srun --output=%x_%j.%n.out bash /fsx/stable-diffusion/stable-diffusion/scripts/slurm/resume_768_hr/launcher.sh  # srun vs mpirun?
