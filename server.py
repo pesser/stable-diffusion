@@ -106,14 +106,14 @@ def run(config):
             intermediate_results = convert_samples_to_eden(intermediate_samples, intermediate=True)
             eden_block.write_results(output=intermediate_results, token=config.token)
 
-    if config["mode"] == "inpaint":
+    if config["mode"] == "generate":
+        final_samples = run_diffusion(settings, callback=callback, update_image_every=10)
+
+    elif config["mode"] == "inpaint":
         input_image = b64str_to_PIL(config["input_image"])
         mask_image = b64str_to_PIL(config["mask_image"])
         output_image = run_inpainting(settings, input_image, mask_image)
-        final_samples = [output_image]
-        
-    elif config["mode"] == "generate":
-        final_samples = run_diffusion(settings, callback=callback, update_image_every=10)
+        final_samples = [output_image]        
     
     results = convert_samples_to_eden(final_samples)
 
