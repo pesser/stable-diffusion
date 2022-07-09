@@ -106,6 +106,12 @@ data:
 
 
 lightning:
+  find_unused_parameters: False
+
+  modelcheckpoint:
+    params:
+      every_n_train_steps: 5000
+
   callbacks:
     image_logger:
       target: main.ImageLogger
@@ -124,7 +130,6 @@ lightning:
           unconditional_guidance_label: [""]
 
   trainer:
-    #replace_sampler_ddp: False
     benchmark: True
     val_check_interval: 5000000  # really sorry
     num_sanity_val_steps: 0
