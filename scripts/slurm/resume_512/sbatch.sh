@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=compute-od-gpu
-#SBATCH --job-name=stable-diffusion-512cont
-#SBATCH --nodes=24
+#SBATCH --job-name=stable-diffusion-512cont-improvedaesthetics
+#SBATCH --nodes=20
 #SBATCH --gpus-per-node=8
 #SBATCH --cpus-per-gpu=4
 #SBATCH --ntasks-per-node=1
