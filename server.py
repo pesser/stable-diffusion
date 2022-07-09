@@ -2,6 +2,9 @@ import argparse
 import os
 import random
 from dataclasses import dataclass, field
+from io import BytesIO
+import base64
+import PIL
 
 from generate import *
 
@@ -20,8 +23,16 @@ parser.add_argument('-l', '--logfile', help='filename of log file', required=Fal
 args = parser.parse_args()
 
 
+def b64str_to_PIL(data):
+    data = data.replace('data:image/png;base64,', '')
+    pil_img = PIL.Image.open(BytesIO(base64.b64decode(data)))
+    return pil_img
+
+
 @dataclass
 class StableDiffusionSettings:
+    input_image: PIL.Image = None
+    mask_image: PIL.Image = None
     text_input: str = "a painting of a virus monster playing guitar"
     ddim_steps: int = 50
     plms: bool = False
@@ -44,13 +55,17 @@ def convert_samples_to_eden(samples, intermediate=False):
     if intermediate:
         results['intermediate_creation'] = Image(samples[0])
     else:
-        for s, sample in enumerate(samples):
-            results[f'creation{s+1}'] = Image(sample)
-        results['creation'] = Image(samples[0])    
+        results['creation'] = Image(samples[0])
+        if len(samples) > 1:
+            for s, sample in enumerate(samples):
+                results[f'creation{s+1}'] = Image(sample)
     return results
 
 
 my_args = {
+    "mode": "generate",
+    "input_image": "",
+    "mask_image": "",
     "text_input": "Hello world", 
     "width": 512,
     "height": 512,
@@ -66,6 +81,10 @@ my_args = {
 @eden_block.run(args=my_args)
 def run(config):
     
+    mode = config["mode"]
+    assert(mode in ["generate", "inpaint"], \
+        f"Error: mode {mode} not recognized (generate or inpaint allowed)")
+
     settings = StableDiffusionSettings(
         text_input = config["text_input"],
         ddim_steps = config["ddim_steps"],
@@ -87,9 +106,17 @@ def run(config):
             intermediate_results = convert_samples_to_eden(intermediate_samples, intermediate=True)
             eden_block.write_results(output=intermediate_results, token=config.token)
 
-    final_samples = run_diffusion(settings, callback=callback, update_image_every=10)
-    results = convert_samples_to_eden(final_samples)
+    if config["mode"] == "inpaint":
+        input_image = b64str_to_PIL(config["input_image"])
+        mask_image = b64str_to_PIL(config["mask_image"])
+        output_image = run_inpainting(settings, input_image, mask_image)
+        final_samples = [output_image]
+        
+    elif config["mode"] == "generate":
+        final_samples = run_diffusion(settings, callback=callback, update_image_every=10)
     
+    results = convert_samples_to_eden(final_samples)
+
     return results
 
 

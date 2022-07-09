@@ -17,7 +17,9 @@ from ldm.models.diffusion.plms import PLMSSampler
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 model = None
+inpainting_model = None
 config = None
+
 
 def chunk(it, size):
     it = iter(it)
@@ -43,6 +45,71 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
+def make_batch(image, mask, device):
+    image = np.array(image.convert("RGB"))
+    image = image.astype(np.float32)/255.0
+    image = image[None].transpose(0,3,1,2)
+    image = torch.from_numpy(image)
+
+    mask = np.array(mask.convert("L"))
+    mask = mask.astype(np.float32)/255.0
+    mask = mask[None,None]
+    mask[mask < 0.5] = 0
+    mask[mask >= 0.5] = 1
+    mask = torch.from_numpy(mask)
+
+    masked_image = (1-mask)*image
+
+    batch = {"image": image, "mask": mask, "masked_image": masked_image}
+    for k in batch:
+        batch[k] = batch[k].to(device=device)
+        batch[k] = batch[k]*2.0-1.0
+    return batch
+
+
+def run_inpainting(opt, input_image, mask_image):
+
+    global inpainting_model
+    if inpainting_model is None:
+        config = OmegaConf.load("models/ldm/inpainting_big/config.yaml")
+        inpainting_model = instantiate_from_config(config.model)
+        inpainting_model.load_state_dict(torch.load("models/ldm/inpainting_big/last.ckpt")["state_dict"], strict=False)
+        inpainting_model = inpainting_model.to(device)
+
+    sampler = DDIMSampler(inpainting_model)
+
+    with torch.no_grad():
+        with inpainting_model.ema_scope():
+            batch = make_batch(input_image, mask_image, device=device)
+
+            # encode masked image and concat downsampled mask
+            c = inpainting_model.cond_stage_model.encode(batch["masked_image"])
+            cc = torch.nn.functional.interpolate(batch["mask"],
+                                                    size=c.shape[-2:])
+            c = torch.cat((c, cc), dim=1)
+
+            shape = (c.shape[1]-1,)+c.shape[2:]
+            samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
+                                                conditioning=c,
+                                                batch_size=c.shape[0],
+                                                shape=shape,
+                                                verbose=False)
+            x_samples_ddim = inpainting_model.decode_first_stage(samples_ddim)
+
+            image = torch.clamp((batch["image"]+1.0)/2.0,
+                                min=0.0, max=1.0)
+            mask = torch.clamp((batch["mask"]+1.0)/2.0,
+                                min=0.0, max=1.0)
+            predicted_image = torch.clamp((x_samples_ddim+1.0)/2.0,
+                                            min=0.0, max=1.0)
+
+            inpainted = (1-mask)*image+mask*predicted_image
+            inpainted = inpainted.cpu().numpy().transpose(0,2,3,1)[0]*255
+            output_image = inpainted.astype(np.uint8)
+
+            return output_image
+
+
 def run_diffusion(opt, callback=None, update_image_every=1):
     
     global model
@@ -55,8 +122,6 @@ def run_diffusion(opt, callback=None, update_image_every=1):
         sampler = PLMSSampler(model)
     else:
         sampler = DDIMSampler(model)
-
-    # seed_everything(opt.seed)
     
     batch_size = opt.n_samples
 
