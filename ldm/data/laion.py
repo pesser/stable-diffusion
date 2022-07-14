@@ -151,12 +151,7 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         if self.tar_base == "__improvedaesthetic__":
             print("## Warning, loading the same improved aesthetic dataset "
                     "for all splits and ignoring shards parameter.")
-            urls = []
-            for i in range(1, 65):
-                for j in range(512):
-                    for k in range(5):
-                        urls.append(f's3://s-laion/improved-aesthetics-laion-2B-en-subsets/aesthetics/{i:02d}/{j:03d}/{k:05d}.tar')
-            tars = [f'pipe:aws s3 cp {url} -' for url in urls]
+            tars = "pipe:aws s3 cp s3://s-laion/improved-aesthetics-laion-2B-en-subsets/aesthetics_tars/{000000..060207}.tar -"
         else:
             tars = os.path.join(self.tar_base, dataset_config.shards)
 
@@ -314,7 +309,8 @@ if __name__ == "__main__":
     from pytorch_lightning.trainer.supporters import CombinedLoader, CycleIterator
 
     #config = OmegaConf.load("configs/stable-diffusion/txt2img-1p4B-multinode-clip-encoder-high-res-512.yaml")
-    config = OmegaConf.load("configs/stable-diffusion/txt2img-upscale-clip-encoder-f16-1024.yaml")
+    #config = OmegaConf.load("configs/stable-diffusion/txt2img-upscale-clip-encoder-f16-1024.yaml")
+    config = OmegaConf.load("configs/stable-diffusion/txt2img-v2-clip-encoder-improved_aesthetics-256.yaml")
     datamod = WebDataModuleFromConfig(**config["data"]["params"])
     dataloader = datamod.train_dataloader()
 

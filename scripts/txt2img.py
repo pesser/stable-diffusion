@@ -40,7 +40,7 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -258,3 +258,7 @@ if __name__ == "__main__":
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
           f"Sampling took {toc-tic}s, i.e. produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
           f" \nEnjoy.")
+
+
+if __name__ == "__main__":
+    main()
