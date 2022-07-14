@@ -112,7 +112,7 @@ def run(config):
     elif config["mode"] == "inpaint":
         input_image = b64str_to_PIL(config["input_image"])
         mask_image = b64str_to_PIL(config["mask_image"])
-        output_image = run_inpainting(settings, input_image, mask_image)
+        output_image = run_inpainting(settings, input_image, mask_image, callback=callback, update_image_every=10)
         final_samples = [output_image]        
     
     results = convert_samples_to_eden(final_samples)

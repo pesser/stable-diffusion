@@ -67,7 +67,7 @@ def make_batch(image, mask, device):
     return batch
 
 
-def run_inpainting(opt, input_image, mask_image):
+def run_inpainting(opt, input_image, mask_image, callback=None, update_image_every=1):
 
     global inpainting_model
     if inpainting_model is None:
@@ -77,6 +77,29 @@ def run_inpainting(opt, input_image, mask_image):
         inpainting_model = inpainting_model.to(device)
 
     sampler = DDIMSampler(inpainting_model)
+
+    def inner_callback(img, i):
+        intermediate_samples = None
+        if i % update_image_every != 0:
+            intermediate_samples = []
+            x_samples_ddim = inpainting_model.decode_first_stage(img)
+            image = np.array(input_image.convert("RGB"))
+            image = image.astype(np.float32)/255.0
+            image = image[None].transpose(0,3,1,2)
+            image = torch.from_numpy(image)
+            mask = np.array(mask_image.convert("L"))
+            mask = mask.astype(np.float32)/255.0
+            mask = mask[None,None]
+            mask[mask < 0.5] = 0
+            mask[mask >= 0.5] = 1
+            mask = torch.from_numpy(mask)
+            image = torch.clamp((batch["image"]+1.0)/2.0, min=0.0, max=1.0)
+            mask = torch.clamp((batch["mask"]+1.0)/2.0, min=0.0, max=1.0)
+            predicted_image = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+            inpainted = (1-mask)*image+mask*predicted_image
+            inpainted = inpainted.cpu().numpy().transpose(0,2,3,1)[0]*255
+            intermediate_samples.append(inpainted.astype(np.uint8))
+        callback(intermediate_samples, i)
 
     with torch.no_grad():
         with inpainting_model.ema_scope():
@@ -90,10 +113,11 @@ def run_inpainting(opt, input_image, mask_image):
 
             shape = (c.shape[1]-1,)+c.shape[2:]
             samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
-                                                conditioning=c,
-                                                batch_size=c.shape[0],
-                                                shape=shape,
-                                                verbose=False)
+                                             img_callback=inner_callback if callback else None,
+                                             conditioning=c,
+                                             batch_size=c.shape[0],
+                                             shape=shape,
+                                             verbose=False)
             x_samples_ddim = inpainting_model.decode_first_stage(samples_ddim)
 
             image = torch.clamp((batch["image"]+1.0)/2.0,
@@ -153,6 +177,7 @@ def run_diffusion(opt, callback=None, update_image_every=1):
                         prompts = list(prompts)
                     c = model.get_learned_conditioning(prompts)
                     shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
+
                     samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                      img_callback=inner_callback if callback else None,
                                                      conditioning=c,
