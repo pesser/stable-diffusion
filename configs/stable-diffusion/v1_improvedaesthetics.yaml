@@ -72,7 +72,7 @@ model:
 data:
   target: ldm.data.laion.WebDataModuleFromConfig
   params:
-    tar_base: "pipe:aws s3 cp s3://s-datasets/laion-high-resolution/"
+    tar_base: "__improvedaesthetic__"
     batch_size: 4
     num_workers: 4
     multinode: True
