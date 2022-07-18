@@ -83,6 +83,11 @@ def main():
         action='store_true',
         help="use plms sampling",
     )
+    parser.add_argument(
+        "--fixed_code",
+        action='store_true',
+        help="if enabled, uses the same starting code across all samples ",
+    )
 
     parser.add_argument(
         "--ddim_eta",
@@ -155,7 +160,6 @@ def main():
         type=str,
         help="if specified, load prompts from this file",
     )
-
     parser.add_argument(
         "--config",
         type=str,
@@ -209,6 +213,10 @@ def main():
     base_count = len(os.listdir(sample_path))
     grid_count = len(os.listdir(outpath)) - 1
 
+    start_code = None
+    if opt.fixed_code:
+        start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
+
     with torch.no_grad():
         with model.ema_scope():
             tic = time.time()
@@ -221,7 +229,7 @@ def main():
                     if isinstance(prompts, tuple):
                         prompts = list(prompts)
                     c = model.get_learned_conditioning(prompts)
-                    shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
+                    shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                     samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                      conditioning=c,
                                                      batch_size=opt.n_samples,
@@ -230,15 +238,17 @@ def main():
                                                      unconditional_guidance_scale=opt.scale,
                                                      unconditional_conditioning=uc,
                                                      eta=opt.ddim_eta,
-                                                     dynamic_threshold=opt.dyn)
+                                                     dynamic_threshold=opt.dyn,
+                                                     x_T=start_code)
 
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
-                    x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+                    x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
 
                     if not opt.skip_save:
                         for x_sample in x_samples_ddim:
                             x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                            Image.fromarray(x_sample.astype(np.uint8)).save(os.path.join(sample_path, f"{base_count:05}.png"))
+                            Image.fromarray(x_sample.astype(np.uint8)).save(
+                                os.path.join(sample_path, f"{base_count:05}.png"))
                             base_count += 1
                     all_samples.append(x_samples_ddim)
 
@@ -256,7 +266,7 @@ def main():
             toc = time.time()
 
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
-          f"Sampling took {toc-tic}s, i.e. produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
+          f"Sampling took {toc - tic}s, i.e. produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
           f" \nEnjoy.")
 
 
