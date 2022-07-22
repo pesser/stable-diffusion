@@ -350,6 +350,7 @@ class ImageLogger(Callback):
         if (self.check_frequency(check_idx) and  # batch_idx % self.batch_freq == 0
                 hasattr(pl_module, "log_images") and
                 callable(pl_module.log_images) and
+                batch_idx > 5 and
                 self.max_images > 0):
             logger = type(pl_module.logger)
 
