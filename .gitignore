@@ -1,0 +1,8 @@
+__pycache__
+*.ckpt
+*.egg-info
+*/__pycache__
+*/*/__pycache__
+log.txt
+**.ckpt
+src/

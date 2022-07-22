@@ -92,8 +92,8 @@ def run(config):
         plms = config["plms"],
         n_samples = config["n_samples"],
         n_iter = config["n_iter"],
-        ckpt = "f16-33k+12k-hr_pruned.ckpt",
-        config = "configs/stable-diffusion/txt2img-multinode-clip-encoder-f16-768-laion-hr-inference.yaml",
+        ckpt = "v1pp-flatline-pruned.ckpt", # "f16-33k+12k-hr_pruned.ckpt"
+        config = "configs/stable-diffusion/v1_improvedaesthetics.yaml", # "configs/stable-diffusion/txt2img-multinode-clip-encoder-f16-768-laion-hr-inference.yaml",
         C = config['C'],
         f = config['f'],
         W = config["width"] - (config["width"] % 128),
@@ -118,7 +118,6 @@ def run(config):
     results = convert_samples_to_eden(final_samples)
 
     return results
-
 
 
 host_block(
