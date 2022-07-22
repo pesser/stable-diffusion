@@ -23,10 +23,14 @@ cd /fsx/stable-diffusion/stable-diffusion
 CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v1_improvedaesthetics.yaml"
 
 # resume and set new seed to reshuffle data
-EXTRA="--seed 718 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/checkpoints2/v1pp/v1pp-flatline.ckpt"
+#EXTRA="--seed 718 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/checkpoints2/v1pp/v1pp-flatline.ckpt"
+EXTRA="--seed 718 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T07-45-07_v1_improvedaesthetics/checkpoints/last.ckpt"
 
-# only images >= 512
-EXTRA="${EXTRA} data.params.min_size=512"
+# only images >= 512 and pwatermark <= 0.4999
+EXTRA="${EXTRA} data.params.min_size=512 data.params.max_pwatermark=0.4999"
+
+# postfix
+EXTRA="${EXTRA} -f v1_iahr_torch111"
 
 # time to decay
 #EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[50000] model.params.scheduler_config.params.f_min=[1e-6]"

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=compute-od-gpu
 #SBATCH --job-name=stable-diffusion-v1-iahr-torch111
-#SBATCH --nodes 20
+#SBATCH --nodes 32
 #SBATCH --ntasks-per-node 1
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:8

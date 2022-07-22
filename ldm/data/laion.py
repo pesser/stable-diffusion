@@ -105,6 +105,7 @@ def dict_collation_fn(samples, combine_tensors=True, combine_scalars=True):
 class WebDataModuleFromConfig(pl.LightningDataModule):
     def __init__(self, tar_base, batch_size, train=None, validation=None,
                  test=None, num_workers=4, multinode=True, min_size=None,
+                 max_pwatermark=1.0,
                  **kwargs):
         super().__init__(self)
         print(f'Setting tar base to {tar_base}')
@@ -116,6 +117,7 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         self.test = test
         self.multinode = multinode
         self.min_size = min_size  # filter out very small images
+        self.max_pwatermark = max_pwatermark # filter out watermarked images
 
     def make_loader(self, dataset_config, train=True):
         if 'image_transforms' in dataset_config:
@@ -184,7 +186,7 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         if self.min_size is None:
             return True
         try:
-            return x['json']['original_width'] >= self.min_size and x['json']['original_height'] >= self.min_size
+            return x['json']['original_width'] >= self.min_size and x['json']['original_height'] >= self.min_size and x['json']['pwatermark'] <= self.max_pwatermark
         except Exception:
             return False
 
@@ -336,18 +338,30 @@ def example03():
         except Exception:
             return False
 
+    def filter_watermark(x):
+        try:
+            return x['json']['pwatermark'] < 0.5
+        except Exception:
+            return False
+
     dataset = (dataset
                 .select(filter_keys)
                 .decode('pil', handler=wds.warn_and_continue))
     n_total = 0
     n_large = 0
+    n_large_nowm = 0
     for i, example in enumerate(dataset):
         n_total += 1
         if filter_size(example):
             n_large += 1
+            if filter_watermark(example):
+                n_large_nowm += 1
 
-        if i%1000 == 0:
+        if i%500 == 0:
+            print(i)
             print(f"Large: {n_large}/{n_total} | {n_large/n_total*100:.2f}%")
+            if n_large > 0:
+                print(f"No Watermark: {n_large_nowm}/{n_large} | {n_large_nowm/n_large*100:.2f}%")
 
 
 
@@ -382,5 +396,5 @@ def example04():
 if __name__ == "__main__":
     #example01()
     #example02()
-    #example03()
-    example04()
+    example03()
+    #example04()
