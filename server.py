@@ -48,6 +48,7 @@ class StableDiffusionSettings:
     config: str = "logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml"
     ckpt: str = "logs/f8-kl-clip-encoder-256x256-run1/checkpoints/last.ckpt"
     seed: int = 42
+    fixed_code: bool = False
 
 
 def convert_samples_to_eden(samples, intermediate=False):
@@ -75,7 +76,8 @@ my_args = {
     "ddim_steps": 50,
     "plms": True,
     "C": 16,
-    "f": 8
+    "f": 8,
+    "fixed_code": False
 }
 
 @eden_block.run(args=my_args)
@@ -97,7 +99,8 @@ def run(config):
         C = config['C'],
         f = config['f'],
         W = config["width"] - (config["width"] % 128),
-        H = config["height"] - (config["height"] % 128)
+        H = config["height"] - (config["height"] % 128),
+        fixed_code = config["fixed_code"]
     )
 
     def callback(intermediate_samples, i):

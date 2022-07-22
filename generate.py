@@ -153,6 +153,10 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     assert prompt is not None
     data = [batch_size * [prompt]]
         
+    start_code = None
+    if opt.fixed_code:
+        start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
+
     all_samples = list()
 
     def inner_callback(img, i):
@@ -187,7 +191,8 @@ def run_diffusion(opt, callback=None, update_image_every=1):
                                                      unconditional_guidance_scale=opt.scale,
                                                      unconditional_conditioning=uc,
                                                      eta=opt.ddim_eta,
-                                                     dynamic_threshold=opt.dyn)
+                                                     dynamic_threshold=opt.dyn,
+                                                     x_T=start_code)
 
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
                     x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
