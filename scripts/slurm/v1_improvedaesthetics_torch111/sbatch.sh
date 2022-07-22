@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=compute-od-gpu
-#SBATCH --job-name=stable-diffusion-v3-pretraining
-#SBATCH --nodes 44
+#SBATCH --job-name=stable-diffusion-v1-improvedaesthetics-torch111
+#SBATCH --nodes 20
 #SBATCH --ntasks-per-node 1
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:8
@@ -11,7 +11,8 @@
 
 module load intelmpi
 source /opt/intel/mpi/latest/env/vars.sh
-export LD_LIBRARY_PATH=/opt/aws-ofi-nccl/lib:/opt/amazon/efa/lib64:/usr/local/cuda-11.0/efa/lib:/usr/local/cuda-11.0/lib:/usr/local/cuda-11.0/lib64:/usr/local/cuda-11.0:/opt/nccl/build/lib:/opt/aws-ofi-nccl-install/lib:/opt/aws-ofi-nccl/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/opt/aws-ofi-nccl/lib:/opt/amazon/efa/lib64:/usr/local/cuda-11.0/efa/lib:/usr/local/cuda-11.0/lib:/usr/local/cuda-11.0/lib64:/usr/local/cuda-11.0:/opt/nccl/build/lib:/opt/aws-ofi-nccl-inst
+all/lib:/opt/aws-ofi-nccl/lib:$LD_LIBRARY_PATH
 export NCCL_PROTO=simple
 export PATH=/opt/amazon/efa/bin:$PATH
 export LD_PRELOAD="/opt/nccl/build/lib/libnccl.so"
@@ -38,4 +39,4 @@ echo go $COUNT_NODE
 echo $HOSTNAMES
 echo $WORLD_SIZE
 
-mpirun -n $COUNT_NODE -perhost 1 /fsx/stable-diffusion/stable-diffusion/scripts/slurm/v3_pretraining/launcher.sh
+mpirun -n $COUNT_NODE -perhost 1 /fsx/stable-diffusion/stable-diffusion/scripts/slurm/v1_improvedaesthetics_torch111/launcher.sh

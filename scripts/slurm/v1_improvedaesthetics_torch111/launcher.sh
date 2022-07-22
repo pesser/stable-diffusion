@@ -16,24 +16,23 @@ echo "##########################################"
 # no magic there, just a miniconda python=3.9, pytorch=1.12, cudatoolkit=11.3
 # env with pip dependencies from stable diffusion's requirements.txt
 eval "$(/fsx/stable-diffusion/debug/miniconda3/bin/conda shell.bash hook)"
-#conda activate stable
-# torch 1.11 to avoid bug in ckpt restoring
 conda activate torch111
 cd /fsx/stable-diffusion/stable-diffusion
 
-CONFIG=configs/stable-diffusion/v3_pretraining.yaml
+CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v1_improvedaesthetics.yaml"
 
 # resume and set new seed to reshuffle data
-#EXTRA="--seed 714 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/rlogs/2022-07-11T22-57-10_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
-EXTRA="--seed 715 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-14T21-03-49_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
+#EXTRA="--seed 714 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-11T20-16-11_txt2img-1p4B-multinode-clip-encoder-high-res-512_improvedaesthetic/checkpoints/last.ckpt"
+#EXTRA="--seed 715 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-14T23-26-13_v1_improvedaesthetics/checkpoints/last.ckpt"
+#EXTRA="--seed 716 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-18T23-11-11_v1_improvedaesthetics/checkpoints/last.ckpt"
+EXTRA="--seed 717 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-19T19-03-04_v1_improvedaesthetics/checkpoints/last.ckpt"
+# time to decay
+EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[50000] model.params.scheduler_config.params.f_min=[1e-6]"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
 
 # debugging
 #EXTRA="${EXTRA} -d True lightning.callbacks.image_logger.params.batch_frequency=50"
-
-# detect bad gpus early on
-/bin/bash /fsx/stable-diffusion/stable-diffusion/scripts/test_gpu.sh
 
 python main.py --base $CONFIG --gpus 0,1,2,3,4,5,6,7 -t --num_nodes ${WORLD_SIZE} --scale_lr False $EXTRA
