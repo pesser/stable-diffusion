@@ -25,7 +25,8 @@ CONFIG=configs/stable-diffusion/v3_pretraining.yaml
 
 # resume and set new seed to reshuffle data
 #EXTRA="--seed 714 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/rlogs/2022-07-11T22-57-10_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
-EXTRA="--seed 715 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-14T21-03-49_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
+#EXTRA="--seed 715 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-14T21-03-49_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
+EXTRA="--seed 716 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T09-25-26_v3_pretraining/checkpoints/last.ckpt"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
