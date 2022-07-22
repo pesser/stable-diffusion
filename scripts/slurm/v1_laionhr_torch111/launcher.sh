@@ -19,15 +19,13 @@ eval "$(/fsx/stable-diffusion/debug/miniconda3/bin/conda shell.bash hook)"
 conda activate torch111
 cd /fsx/stable-diffusion/stable-diffusion
 
-CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v1_improvedaesthetics.yaml"
+CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v1_laionhr.yaml"
 
 # resume and set new seed to reshuffle data
-#EXTRA="--seed 714 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-11T20-16-11_txt2img-1p4B-multinode-clip-encoder-high-res-512_improvedaesthetic/checkpoints/last.ckpt"
-#EXTRA="--seed 715 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-14T23-26-13_v1_improvedaesthetics/checkpoints/last.ckpt"
-#EXTRA="--seed 716 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-18T23-11-11_v1_improvedaesthetics/checkpoints/last.ckpt"
-EXTRA="--seed 717 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-19T19-03-04_v1_improvedaesthetics/checkpoints/last.ckpt"
+EXTRA="--seed 718 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/checkpoints2/v1pp/v1pp-flatline.ckpt"
+
 # time to decay
-EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[50000] model.params.scheduler_config.params.f_min=[1e-6]"
+#EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[50000] model.params.scheduler_config.params.f_min=[1e-6]"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
