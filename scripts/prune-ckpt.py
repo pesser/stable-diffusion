@@ -14,6 +14,8 @@ def prune_it(p):
             nsd[k] = sd[k]
     else:
         print(f"removing optimizer states for path {p}")
+    if "global_step" in sd:
+        print(f"This is global step {sd['global_step']}.")
     fn = f"{os.path.splitext(p)[0]}-pruned.ckpt"
     print(f"saving pruned checkpoint at: {fn}")
     torch.save(nsd, fn)

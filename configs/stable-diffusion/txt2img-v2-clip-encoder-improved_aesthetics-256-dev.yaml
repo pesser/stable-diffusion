@@ -2,6 +2,7 @@ model:
   base_learning_rate: 1.0e-04
   target: ldm.models.diffusion.ddpm.LatentDiffusion
   params:
+
     linear_start: 0.00085
     linear_end: 0.0120
     num_timesteps_cond: 1
@@ -9,7 +10,7 @@ model:
     timesteps: 1000
     first_stage_key: "jpg"
     cond_stage_key: "txt"
-    image_size: 64
+    image_size: 32
     channels: 4
     cond_stage_trainable: false   # Note: different from the one we trained before
     conditioning_key: crossattn
@@ -19,7 +20,7 @@ model:
     scheduler_config: # 10000 warmup steps
       target: ldm.lr_scheduler.LambdaLinearScheduler
       params:
-        warm_up_steps: [ 1 ] # NOTE for resuming. use 10000 if starting from scratch
+        warm_up_steps: [ 10000 ]
         cycle_lengths: [ 10000000000000 ] # incredibly large number to prevent corner cases
         f_start: [ 1.e-6 ]
         f_max: [ 1. ]
@@ -31,10 +32,11 @@ model:
         image_size: 32 # unused
         in_channels: 4
         out_channels: 4
-        model_channels: 320
-        attention_resolutions: [ 4, 2, 1 ]
-        num_res_blocks: 2
+        model_channels: 384
+        attention_resolutions: [ 8, 4, 2, 1 ]
+        num_res_blocks: [ 2, 2, 2, 2 ]
         channel_mult: [ 1, 2, 4, 4 ]
+        disable_self_attentions: [ False, False, False, False ]  # converts the self-attention to a cross-attention layer if true
         num_heads: 8
         use_spatial_transformer: True
         transformer_depth: 1
@@ -69,53 +71,64 @@ model:
       target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
 
 
-data:
-  target: ldm.data.laion.WebDataModuleFromConfig
+data:  # TODO
+  target: main.DataModuleFromConfig
   params:
-    tar_base: "pipe:aws s3 cp s3://s-datasets/laion-high-resolution/"
-    batch_size: 4
+    batch_size: 8
     num_workers: 4
-    multinode: True
+    wrap: false
     train:
-      shards: '{00000..17279}.tar -'
-      shuffle: 10000
-      image_key: jpg
-      image_transforms:
-      - target: torchvision.transforms.Resize
-        params:
-          size: 512
-          interpolation: 3
-      - target: torchvision.transforms.RandomCrop
-        params:
-          size: 512
-
-    # NOTE use enough shards to avoid empty validation loops in workers
+      target: ldm.data.dummy.DummyData
+      params:
+        length: 20000
+        size: [256, 256, 3]
     validation:
-      shards: '{17280..17535}.tar -'
-      shuffle: 0
-      image_key: jpg
-      image_transforms:
-      - target: torchvision.transforms.Resize
-        params:
-          size: 512
-          interpolation: 3
-      - target: torchvision.transforms.CenterCrop
-        params:
-          size: 512
+      target: ldm.data.dummy.DummyData
+      params:
+        length: 10000
+        size: [256, 256, 3]
+
+#data:
+#  target: ldm.data.laion.WebDataModuleFromConfig
+#  params:
+#    tar_base: "pipe:aws s3 cp s3://s-datasets/laion-high-resolution/"
+#    batch_size: 4
+#    num_workers: 4
+#    multinode: True
+#    train:
+#      shards: '{00000..17279}.tar -'
+#      shuffle: 10000
+#      image_key: jpg
+#      image_transforms:
+#      - target: torchvision.transforms.Resize
+#        params:
+#          size: 512
+#          interpolation: 3
+#      - target: torchvision.transforms.RandomCrop
+#        params:
+#          size: 512
+#
+#    # NOTE use enough shards to avoid empty validation loops in workers
+#    validation:
+#      shards: '{17280..17535}.tar -'
+#      shuffle: 0
+#      image_key: jpg
+#      image_transforms:
+#      - target: torchvision.transforms.Resize
+#        params:
+#          size: 512
+#          interpolation: 3
+#      - target: torchvision.transforms.CenterCrop
+#        params:
+#          size: 512
 
 
 lightning:
-  find_unused_parameters: False
-
-  modelcheckpoint:
-    params:
-      every_n_train_steps: 5000
-
   callbacks:
     image_logger:
       target: main.ImageLogger
       params:
-        batch_frequency: 5000
+        batch_frequency: 5  # TODO
         max_images: 4
         increase_log_steps: False
         log_first_step: False
@@ -129,7 +142,8 @@ lightning:
           unconditional_guidance_label: [""]
 
   trainer:
+    #replace_sampler_ddp: False
     benchmark: True
-    val_check_interval: 5000000  # really sorry
+    val_check_interval: 200  # TODO: 5000000 # really sorry
     num_sanity_val_steps: 0
     accumulate_grad_batches: 2

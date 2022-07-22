@@ -21,6 +21,9 @@ from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
 
 
+MULTINODE_HACKS = True
+
+
 def get_parser(**parser_kwargs):
     def str2bool(v):
         if isinstance(v, bool):
@@ -268,6 +271,9 @@ class SetupCallback(Callback):
                     os.makedirs(os.path.join(self.ckptdir, 'trainstep_checkpoints'), exist_ok=True)
             print("Project config")
             print(OmegaConf.to_yaml(self.config))
+            if MULTINODE_HACKS:
+                import time
+                time.sleep(5)
             OmegaConf.save(self.config,
                            os.path.join(self.cfgdir, "{}-project.yaml".format(self.now)))
 
@@ -278,7 +284,7 @@ class SetupCallback(Callback):
 
         else:
             # ModelCheckpoint callback created log directory --- remove it
-            if not self.resume and os.path.exists(self.logdir):
+            if not MULTINODE_HACKS and not self.resume and os.path.exists(self.logdir):
                 dst, name = os.path.split(self.logdir)
                 dst = os.path.join(dst, "child_runs", name)
                 os.makedirs(os.path.split(dst)[0], exist_ok=True)
@@ -344,6 +350,7 @@ class ImageLogger(Callback):
         if (self.check_frequency(check_idx) and  # batch_idx % self.batch_freq == 0
                 hasattr(pl_module, "log_images") and
                 callable(pl_module.log_images) and
+                batch_idx > 5 and
                 self.max_images > 0):
             logger = type(pl_module.logger)
 
@@ -759,9 +766,19 @@ if __name__ == "__main__":
             del callbacks_cfg['ignore_keys_callback']
 
         trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
+        if not "plugins" in trainer_kwargs:
+            trainer_kwargs["plugins"] = list()
         if not lightning_config.get("find_unused_parameters", True):
             from pytorch_lightning.plugins import DDPPlugin
-            trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)
+            trainer_kwargs["plugins"].append(DDPPlugin(find_unused_parameters=False))
+        if MULTINODE_HACKS:
+            # disable resume from hpc ckpts
+            # NOTE below only works in later versions
+            # from pytorch_lightning.plugins.environments import SLURMEnvironment
+            # trainer_kwargs["plugins"].append(SLURMEnvironment(auto_requeue=False))
+            # hence we monkey patch things
+            from pytorch_lightning.trainer.connectors.checkpoint_connector import CheckpointConnector
+            setattr(CheckpointConnector, "hpc_resume_path", None)
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir  ###
@@ -833,6 +850,18 @@ if __name__ == "__main__":
                 raise
         if not opt.no_test and not trainer.interrupted:
             trainer.test(model, data)
+    except RuntimeError as err:
+        if MULTINODE_HACKS:
+            import requests
+            import datetime
+            import os
+            import socket
+            device = os.environ.get("CUDA_VISIBLE_DEVICES", "?")
+            hostname = socket.gethostname()
+            ts = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            resp = requests.get('http://169.254.169.254/latest/meta-data/instance-id')
+            print(f'ERROR at {ts} on {hostname}/{resp.text} (CUDA_VISIBLE_DEVICES={device}): {type(err).__name__}: {err}', flush=True)
+        raise err
     except Exception:
         if opt.debug and trainer.global_rank == 0:
             try:
