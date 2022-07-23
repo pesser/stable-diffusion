@@ -75,7 +75,7 @@ my_args = {
     "scale": 5.0,
     "ddim_steps": 50,
     "plms": True,
-    "C": 16,
+    "C": 4,
     "f": 8,
     "fixed_code": False
 }
