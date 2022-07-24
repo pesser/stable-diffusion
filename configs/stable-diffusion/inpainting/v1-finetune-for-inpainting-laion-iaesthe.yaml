@@ -1,0 +1,144 @@
+model:
+  base_learning_rate: 7.5e-05
+  target: ldm.models.diffusion.ddpm.LatentInpaintDiffusion
+  params:
+    linear_start: 0.00085
+    linear_end: 0.0120
+    num_timesteps_cond: 1
+    log_every_t: 200
+    timesteps: 1000
+    first_stage_key: "jpg"
+    cond_stage_key: "txt"
+    image_size: 64
+    channels: 4
+    cond_stage_trainable: false   # Note: different from the one we trained before
+    conditioning_key: hybrid   # important
+    monitor: val/loss_simple_ema
+    scale_factor: 0.18215
+    ckpt_path: "/fsx/stable-diffusion/stable-diffusion/checkpoints2/v1pp/v1pp-flatline-pruned.ckpt"
+
+    scheduler_config: # 10000 warmup steps
+      target: ldm.lr_scheduler.LambdaLinearScheduler
+      params:
+        warm_up_steps: [ 2500 ] # NOTE for resuming. use 10000 if starting from scratch
+        cycle_lengths: [ 10000000000000 ] # incredibly large number to prevent corner cases
+        f_start: [ 1.e-6 ]
+        f_max: [ 1. ]
+        f_min: [ 1. ]
+
+    unet_config:
+      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
+      params:
+        image_size: 32 # unused
+        in_channels: 9  # 4 data + 4 downscaled image + 1 mask
+        out_channels: 4
+        model_channels: 320
+        attention_resolutions: [ 4, 2, 1 ]
+        num_res_blocks: 2
+        channel_mult: [ 1, 2, 4, 4 ]
+        num_heads: 8
+        use_spatial_transformer: True
+        transformer_depth: 1
+        context_dim: 768
+        use_checkpoint: True
+        legacy: False
+
+    first_stage_config:
+      target: ldm.models.autoencoder.AutoencoderKL
+      params:
+        embed_dim: 4
+        monitor: val/rec_loss
+        ddconfig:
+          double_z: true
+          z_channels: 4
+          resolution: 256
+          in_channels: 3
+          out_ch: 3
+          ch: 128
+          ch_mult:
+          - 1
+          - 2
+          - 4
+          - 4
+          num_res_blocks: 2
+          attn_resolutions: []
+          dropout: 0.0
+        lossconfig:
+          target: torch.nn.Identity
+
+    cond_stage_config:
+      target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
+
+
+data:
+  target: ldm.data.laion.WebDataModuleFromConfig
+  params:
+    tar_base: "pipe:aws s3 cp s3://s-datasets/laion-high-resolution/"
+    batch_size: 4
+    num_workers: 4
+    multinode: True
+    min_size: 512
+    train:
+      shards: '{00000..17279}.tar -'
+      shuffle: 10000
+      image_key: jpg
+      image_transforms:
+      - target: torchvision.transforms.Resize
+        params:
+          size: 512
+          interpolation: 3
+      - target: torchvision.transforms.RandomCrop
+        params:
+          size: 512
+      postprocess:
+        target: ldm.data.laion.AddMask
+
+    # NOTE use enough shards to avoid empty validation loops in workers
+    validation:
+      shards: '{17280..17535}.tar -'
+      shuffle: 0
+      image_key: jpg
+      image_transforms:
+      - target: torchvision.transforms.Resize
+        params:
+          size: 512
+          interpolation: 3
+      - target: torchvision.transforms.CenterCrop
+        params:
+          size: 512
+      postprocess:
+        target: ldm.data.laion.AddMask
+
+
+lightning:
+  find_unused_parameters: False
+
+  modelcheckpoint:
+    params:
+      every_n_train_steps: 2000
+
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        disabled: False
+        batch_frequency: 1000
+        max_images: 4
+        increase_log_steps: False
+        log_first_step: False
+        log_images_kwargs:
+          use_ema_scope: False
+          inpaint: False
+          plot_progressive_rows: False
+          plot_diffusion_rows: False
+          N: 4
+          unconditional_guidance_scale: 3.0
+          unconditional_guidance_label: [""]
+          ddim_steps: 100  # todo check these out for inpainting,
+          ddim_eta: 1.0   # todo check these out for inpainting,
+
+  trainer:
+    benchmark: True
+    val_check_interval: 5000000  # really sorry
+    num_sanity_val_steps: 0
+    accumulate_grad_batches: 2
