@@ -366,6 +366,7 @@ def example03():
     dataset = (dataset
                 .select(filter_keys)
                 .decode('pil', handler=wds.warn_and_continue))
+    n_save = 20
     n_total = 0
     n_large = 0
     n_large_nowm = 0
@@ -375,6 +376,9 @@ def example03():
             n_large += 1
             if filter_watermark(example):
                 n_large_nowm += 1
+                if n_large_nowm < n_save+1:
+                    image = example["jpg"]
+                    image.save(os.path.join("tmp", f"{n_large_nowm-1:06}.png"))
 
         if i%500 == 0:
             print(i)

@@ -14,7 +14,7 @@ conda activate stable
 cd /fsx/stable-diffusion/stable-diffusion
 
 CONFIG=configs/stable-diffusion/txt2img-1p4B-multinode-clip-encoder-high-res-512-improvedaesthetic.yaml
-EXTRA="model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-07T16-15-18_txt2img-1p4B-multinode-clip-encoder-high-res-512/checkpoints/last.ckpt"
+EXTRA="model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-09T11-06-38_txt2img-1p4B-multinode-clip-encoder-high-res-512_improvedaesthetic/checkpoints/last.ckpt"
 DEBUG="-d True lightning.callbacks.image_logger.params.batch_frequency=5"
 
 python main.py --base $CONFIG --gpus 0,1,2,3,4,5,6,7 -t --num_nodes ${WORLD_SIZE} --scale_lr False $EXTRA #$DEBUG

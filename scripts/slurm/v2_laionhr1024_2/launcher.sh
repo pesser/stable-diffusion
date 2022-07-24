@@ -16,25 +16,15 @@ echo "##########################################"
 # no magic there, just a miniconda python=3.9, pytorch=1.12, cudatoolkit=11.3
 # env with pip dependencies from stable diffusion's requirements.txt
 eval "$(/fsx/stable-diffusion/debug/miniconda3/bin/conda shell.bash hook)"
-#conda activate stable
-conda activate torch111
+conda activate stable
 cd /fsx/stable-diffusion/stable-diffusion
 
-CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v1_improvedaesthetics.yaml"
+CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v2_laionhr1024_2.yaml"
 
 # resume and set new seed to reshuffle data
-#EXTRA="--seed 718 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/checkpoints2/v1pp/v1pp-flatline.ckpt"
-#EXTRA="--seed 718 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T07-45-07_v1_improvedaesthetics/checkpoints/last.ckpt"
-EXTRA="--seed 719 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T12-32-32_v1_improvedaestheticsv1_iahr_torch111/checkpoints/last.ckpt"
-
-# only images >= 512 and pwatermark <= 0.4999
-EXTRA="${EXTRA} data.params.min_size=512 data.params.max_pwatermark=0.4999"
-
-# postfix
-EXTRA="${EXTRA} -f v1_iahr_torch111"
-
-# time to decay
-#EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[50000] model.params.scheduler_config.params.f_min=[1e-6]"
+#EXTRA="--seed 714 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-12T00-50-44_txt2img-multinode-clip-encoder-f16-1024-laion-hr/checkpoints/last.ckpt"
+#EXTRA="--seed 715 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-15T16-49-34_v2_laionhr1024/checkpoints/last.ckpt"
+EXTRA="--seed 716 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/logs/2022-07-18T17-40-24_v2_laionhr1024/checkpoints/last.ckpt"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
@@ -42,6 +32,5 @@ EXTRA="${EXTRA} -f v1_iahr_torch111"
 # debugging
 #EXTRA="${EXTRA} -d True lightning.callbacks.image_logger.params.batch_frequency=50"
 
-/bin/bash /fsx/stable-diffusion/stable-diffusion/scripts/test_gpu.sh
-
 python main.py --base $CONFIG --gpus 0,1,2,3,4,5,6,7 -t --num_nodes ${WORLD_SIZE} --scale_lr False $EXTRA
+~                                                                                                          

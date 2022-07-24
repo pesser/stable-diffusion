@@ -2,6 +2,7 @@
 #SBATCH --partition=compute-od-gpu
 #SBATCH --job-name=stable-diffusion-512cont-improvedaesthetics
 #SBATCH --nodes=20
+#SBATCH --exclusive
 #SBATCH --gpus-per-node=8
 #SBATCH --cpus-per-gpu=4
 #SBATCH --ntasks-per-node=1
@@ -28,6 +29,7 @@ export NCCL_TREE_THRESHOLD=0
 
 # pytorch multinode vars
 # node rank should be set in launcher script
+export HOSTNAMES=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_PORT=11338
 export WORLD_SIZE=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | wc -l)
@@ -36,4 +38,4 @@ echo MASTER_ADDR=${MASTER_ADDR}
 echo MASTER_PORT=${MASTER_PORT}
 echo WORLD_SIZE=${WORLD_SIZE}
 
-srun --output=%x_%j.%n.out bash /fsx/stable-diffusion/stable-diffusion/scripts/slurm/resume_512/launcher.sh
+mpirun -n $WORLD_SIZE -perhost 1 bash /fsx/stable-diffusion/stable-diffusion/scripts/slurm/resume_512/launcher.sh
