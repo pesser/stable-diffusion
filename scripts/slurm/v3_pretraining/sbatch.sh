@@ -8,6 +8,7 @@
 #SBATCH --exclusive
 #SBATCH --output=%x_%j.out
 #SBATCH --comment "Key=Monitoring,Value=ON"
+#SBATCH --no-requeue
 
 module load intelmpi
 source /opt/intel/mpi/latest/env/vars.sh
