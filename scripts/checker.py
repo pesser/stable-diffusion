@@ -157,6 +157,11 @@ class Checker(object):
 
     def check(self):
         while True:
+            if not os.path.exists(self.filename):
+                print(f"Could not find {self.filename}. Waiting.")
+                time.sleep(self.interval)
+                continue
+
             stamp = os.stat(self.filename).st_mtime
             if stamp != self._cached_stamp:
                 while True:
