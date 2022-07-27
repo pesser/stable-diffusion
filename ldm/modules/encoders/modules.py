@@ -255,8 +255,9 @@ class LowScaleEncoder(nn.Module):
         z = z * self.scale_factor
         noise_level = torch.randint(0, self.max_noise_level, (x.shape[0],), device=x.device).long()
         z = self.q_sample(z, noise_level)
-        #z = torch.nn.functional.interpolate(z, size=self.out_size, mode="nearest")  # TODO: experiment with mode
-        z = z.repeat_interleave(2, -2).repeat_interleave(2, -1)
+        if self.out_size is not None:
+            z = torch.nn.functional.interpolate(z, size=self.out_size, mode="nearest")  # TODO: experiment with mode
+        # z = z.repeat_interleave(2, -2).repeat_interleave(2, -1)
         return z, noise_level
 
     def decode(self, z):
