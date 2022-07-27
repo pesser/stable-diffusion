@@ -163,13 +163,13 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml",
+        default="configs/latent-diffusion/txt2img-1p4B-eval.yaml",
         help="path to config which constructs model",
     )
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="logs/f8-kl-clip-encoder-256x256-run1/checkpoints/last.ckpt",
+        default="models/ldm/text2img-large/model.ckpt",
         help="path to checkpoint of model",
     )
     parser.add_argument(
