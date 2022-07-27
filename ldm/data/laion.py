@@ -16,7 +16,7 @@ from webdataset.handlers import warn_and_continue
 
 
 from ldm.util import instantiate_from_config
-from ldm.data.inpainting.synthetic_mask import gen_large_mask, make_lama_mask, make_narrow_lama_mask, make_512_lama_mask
+from ldm.data.inpainting.synthetic_mask import gen_large_mask, MASK_MODES
 from ldm.data.base import PRNGMixin
 
 
@@ -232,9 +232,10 @@ class AddLR(object):
 
 
 class AddMask(PRNGMixin):
-    def __init__(self, size=512):
+    def __init__(self, mode="512train"):
         super().__init__()
-        self.make_mask = make_512_lama_mask if size == 512 else make_lama_mask
+        assert mode in list(MASK_MODES.keys()), f'unknown mask generation mode "{mode}"'
+        self.make_mask = MASK_MODES[mode]
 
     def __call__(self, sample):
         # sample['jpg'] is tensor hwc in [-1, 1] at this point
