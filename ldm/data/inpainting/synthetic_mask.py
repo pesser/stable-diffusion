@@ -38,6 +38,18 @@ settings = {
             "max_s_box": 300,
             "marg": 10,
         },
+    "512train-large": {    # TODO: experimental
+            "p_irr": 0.5,
+            "min_n_irr": 1,
+            "max_n_irr": 5,
+            "max_l_irr": 450,
+            "max_w_irr": 400,
+            "min_n_box": 1,
+            "max_n_box": 4,
+            "min_s_box": 75,
+            "max_s_box": 450,
+            "marg": 10,
+        },
 }
 
 
@@ -128,14 +140,18 @@ def gen_large_mask(prng, img_h, img_w,
     return mask
 
 
-make_lama_mask = lambda prng, h, w: gen_large_mask(prng, h, w,
-                                                   **settings["256train"])
+make_lama_mask = lambda prng, h, w: gen_large_mask(prng, h, w, **settings["256train"])
+make_narrow_lama_mask = lambda prng, h, w: gen_large_mask(prng, h, w, **settings["256narrow"])
+make_512_lama_mask = lambda prng, h, w: gen_large_mask(prng, h, w, **settings["512train"])
+make_512_lama_mask_large = lambda prng, h, w: gen_large_mask(prng, h, w, **settings["512train-large"])
 
-make_narrow_lama_mask = lambda prng, h, w: gen_large_mask(prng, h, w,
-                                                          **settings["256narrow"])
 
-make_512_lama_mask = lambda prng, h, w: gen_large_mask(prng, h, w,
-                                                       **settings["512train"])
+MASK_MODES = {
+    "256train": make_lama_mask,
+    "256narrow": make_narrow_lama_mask,
+    "512train": make_512_lama_mask,
+    "512train-large": make_512_lama_mask_large
+}
 
 if __name__ == "__main__":
     import sys
