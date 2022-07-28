@@ -36,7 +36,7 @@ EXTRA="${EXTRA} data.params.min_size=512 data.params.max_pwatermark=0.4999"
 EXTRA="${EXTRA} -f v1_iahr_torch111"
 
 # time to decay
-EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[50000] model.params.scheduler_config.params.f_min=[1e-6]"
+EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[300000] model.params.scheduler_config.params.warm_up_steps=[250000] model.params.scheduler_config.params.f_min=[1e-6]"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
