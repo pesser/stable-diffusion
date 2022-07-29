@@ -32,11 +32,14 @@ EXTRA="--seed 721 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusio
 # only images >= 512 and pwatermark <= 0.4999
 EXTRA="${EXTRA} data.params.min_size=512 data.params.max_pwatermark=0.4999"
 
+# unconditional guidance training
+EXTRA="${EXTRA} model.params.ucg_training.txt.p=0.1 model.params.ucg_training.txt.val=''"
+
 # postfix
-EXTRA="${EXTRA} -f v1_iahr_torch111"
+EXTRA="${EXTRA} -f v1_iahr_torch111_ucg"
 
 # time to decay
-EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[300000] model.params.scheduler_config.params.warm_up_steps=[250000] model.params.scheduler_config.params.f_min=[1e-6]"
+#EXTRA="${EXTRA} model.params.scheduler_config.params.cycle_lengths=[300000] model.params.scheduler_config.params.warm_up_steps=[250000] model.params.scheduler_config.params.f_min=[1e-6]"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
