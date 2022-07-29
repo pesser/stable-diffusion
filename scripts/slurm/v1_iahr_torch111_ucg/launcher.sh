@@ -35,6 +35,9 @@ EXTRA="${EXTRA} data.params.min_size=512 data.params.max_pwatermark=0.4999"
 # unconditional guidance training
 EXTRA="${EXTRA} model.params.ucg_training.txt.p=0.1 model.params.ucg_training.txt.val=''"
 
+# reduce lr a bit
+EXTRA="${EXTRA} model.params.scheduler_config.params.f_max=[0.5]"
+
 # postfix
 EXTRA="${EXTRA} -f v1_iahr_torch111_ucg"
 
