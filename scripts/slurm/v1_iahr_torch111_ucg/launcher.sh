@@ -27,7 +27,8 @@ CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/v1_impro
 #EXTRA="--seed 718 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T07-45-07_v1_improvedaesthetics/checkpoints/last.ckpt"
 #EXTRA="--seed 719 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T12-32-32_v1_improvedaestheticsv1_iahr_torch111/checkpoints/last.ckpt"
 #EXTRA="--seed 720 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-23T07-52-21_v1_improvedaestheticsv1_iahr_torch111/checkpoints/last.ckpt"
-EXTRA="--seed 721 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-24T19-07-33_v1_improvedaestheticsv1_iahr_torch111/checkpoints/last.ckpt"
+#EXTRA="--seed 721 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-24T19-07-33_v1_improvedaestheticsv1_iahr_torch111/checkpoints/last.ckpt"
+EXTRA="--seed 722 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-29T10-26-01_v1_improvedaestheticsv1_iahr_torch111_ucg/checkpoints/last.ckpt"
 
 # only images >= 512 and pwatermark <= 0.4999
 EXTRA="${EXTRA} data.params.min_size=512 data.params.max_pwatermark=0.4999"
