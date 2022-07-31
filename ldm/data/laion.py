@@ -185,10 +185,19 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         return loader
 
     def filter_size(self, x):
-        if self.min_size is None:
-            return True
         try:
-            return x['json']['original_width'] >= self.min_size and x['json']['original_height'] >= self.min_size and x['json']['pwatermark'] <= self.max_pwatermark
+            valid = True
+            if self.min_size is not None and self.min_size > 1:
+                try:
+                    valid = valid and x['json']['original_width'] >= self.min_size and x['json']['original_height'] >= self.min_size
+                except Exception:
+                    valid = False
+            if self.max_pwatermark is not None and self.max_pwatermark < 1.0:
+                try:
+                    valid = valid and  x['json']['pwatermark'] <= self.max_pwatermark
+                except Exception:
+                    valid = False
+            return valid
         except Exception:
             return False
 
