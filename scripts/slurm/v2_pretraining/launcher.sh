@@ -24,8 +24,8 @@ cd /fsx/stable-diffusion/stable-diffusion
 CONFIG=configs/stable-diffusion/v2_pretraining.yaml
 
 # resume and set new seed to reshuffle data
-EXTRA="--seed 542 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/checkpoints/v2-256/216k-256.ckpt"
-#EXTRA="--seed 543 --resume_from_checkpoint ..."
+#EXTRA="--seed 542 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/checkpoints/v2-256/216k-256.ckpt"
+EXTRA="--seed 543 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-31T23-35-31_v2_pretraining/checkpoints/last.ckpt"
 
 # reduce lr a bit
 #EXTRA="${EXTRA} model.params.scheduler_config.params.f_max=[0.75]"
