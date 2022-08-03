@@ -122,7 +122,6 @@ class DDPM(pl.LightningModule):
         if self.ucg_training:
             self.ucg_prng = np.random.RandomState()
 
-
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
         if exists(given_betas):
@@ -1603,7 +1602,9 @@ class LatentInpaintDiffusion(LatentDiffusion):
     To disable finetuning mode, set finetune_keys to None
      """
     def __init__(self,
-                 finetune_keys=("model.diffusion_model.input_blocks.0.0.weight", "model_ema.diffusion_modelinput_blocks00weight"),
+                 finetune_keys=("model.diffusion_model.input_blocks.0.0.weight",
+                                "model_ema.diffusion_modelinput_blocks00weight"
+                                ),
                  concat_keys=("mask", "masked_image"),
                  masked_image_key="masked_image",
                  keep_finetune_dims=4,  # if model was trained without concat mode before and we would like to keep these channels
@@ -1657,7 +1658,7 @@ class LatentInpaintDiffusion(LatentDiffusion):
     @torch.no_grad()
     def get_input(self, batch, k, cond_key=None, bs=None, return_first_stage_outputs=False):
         # note: restricted to non-trainable encoders currently
-        assert not self.cond_stage_trainable, 'trainable cond stages not yet supported for inpaiting'
+        assert not self.cond_stage_trainable, 'trainable cond stages not yet supported for inpainting'
         z, c, x, xrec, xc = super().get_input(batch, self.first_stage_key, return_first_stage_outputs=True,
                                               force_c_encode=True, return_original_cond=True, bs=bs)
 

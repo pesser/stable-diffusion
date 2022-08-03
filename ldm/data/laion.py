@@ -242,15 +242,18 @@ class AddLR(object):
 
 
 class AddMask(PRNGMixin):
-    def __init__(self, mode="512train"):
+    def __init__(self, mode="512train", p_drop=0.):
         super().__init__()
         assert mode in list(MASK_MODES.keys()), f'unknown mask generation mode "{mode}"'
         self.make_mask = MASK_MODES[mode]
+        self.p_drop = p_drop
 
     def __call__(self, sample):
         # sample['jpg'] is tensor hwc in [-1, 1] at this point
         x = sample['jpg']
         mask = self.make_mask(self.prng, x.shape[0], x.shape[1])
+        if self.prng.choice(2, p=[1 - self.p_drop, self.p_drop]):
+            mask = np.ones_like(mask)
         mask[mask < 0.5] = 0
         mask[mask > 0.5] = 1
         mask = torch.from_numpy(mask[..., None])
