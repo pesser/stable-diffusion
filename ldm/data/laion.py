@@ -1,4 +1,5 @@
 import webdataset as wds
+import kornia
 from PIL import Image
 import io
 import os
@@ -185,10 +186,19 @@ class WebDataModuleFromConfig(pl.LightningDataModule):
         return loader
 
     def filter_size(self, x):
-        if self.min_size is None:
-            return True
         try:
-            return x['json']['original_width'] >= self.min_size and x['json']['original_height'] >= self.min_size and x['json']['pwatermark'] <= self.max_pwatermark
+            valid = True
+            if self.min_size is not None and self.min_size > 1:
+                try:
+                    valid = valid and x['json']['original_width'] >= self.min_size and x['json']['original_height'] >= self.min_size
+                except Exception:
+                    valid = False
+            if self.max_pwatermark is not None and self.max_pwatermark < 1.0:
+                try:
+                    valid = valid and  x['json']['pwatermark'] <= self.max_pwatermark
+                except Exception:
+                    valid = False
+            return valid
         except Exception:
             return False
 
@@ -249,6 +259,76 @@ class AddMask(PRNGMixin):
         mask = torch.from_numpy(mask[..., None])
         sample['mask'] = mask
         sample['masked_image'] = x * (mask < 0.5)
+        return sample
+
+
+class AddEdge(PRNGMixin):
+    def __init__(self, mode="512train", mask_edges=True):
+        super().__init__()
+        assert mode in list(MASK_MODES.keys()), f'unknown mask generation mode "{mode}"'
+        self.make_mask = MASK_MODES[mode]
+        self.n_down_choices = [0, 1, 2]
+        self.sigma_choices = [1, 2, 3, 4, 5]
+        self.mask_edges = mask_edges
+
+    @torch.no_grad()
+    def __call__(self, sample):
+        # sample['jpg'] is tensor hwc in [-1, 1] at this point
+        x = sample['jpg']
+
+        mask = self.make_mask(self.prng, x.shape[0], x.shape[1])
+        mask[mask < 0.5] = 0
+        mask[mask > 0.5] = 1
+        mask = torch.from_numpy(mask[..., None])
+        sample['mask'] = mask
+
+        n_down_idx = self.prng.choice(len(self.n_down_choices))
+        sigma_idx = self.prng.choice(len(self.sigma_choices))
+
+        n_choices = len(self.n_down_choices)*len(self.sigma_choices)
+        raveled_idx = np.ravel_multi_index((n_down_idx, sigma_idx),
+                                           (len(self.n_down_choices), len(self.sigma_choices)))
+        normalized_idx = raveled_idx/(n_choices-1)
+
+        n_down = self.n_down_choices[n_down_idx]
+        sigma = self.sigma_choices[sigma_idx]
+
+        kernel_size = 4*sigma+1
+        kernel_size = (kernel_size, kernel_size)
+        sigma = (sigma, sigma)
+        canny = kornia.filters.Canny(
+                low_threshold=0.1,
+                high_threshold=0.2,
+                kernel_size=kernel_size,
+                sigma=sigma,
+                hysteresis=True,
+                )
+        y = (x+1.0)/2.0 # in 01
+        y = y.unsqueeze(0).permute(0, 3, 1, 2).contiguous()
+
+        # down
+        for i_down in range(n_down):
+            size = min(y.shape[-2], y.shape[-1])//2
+            y = kornia.geometry.transform.resize(y, size, antialias=True)
+
+        # edge
+        _, y = canny(y)
+
+        if n_down > 0:
+            size = x.shape[0], x.shape[1]
+            y = kornia.geometry.transform.resize(y, size, interpolation="nearest")
+
+        y = y.permute(0, 2, 3, 1)[0].expand(-1, -1, 3).contiguous()
+        y = y*2.0-1.0
+
+        if self.mask_edges:
+            sample['masked_image'] = y * (mask < 0.5)
+        else:
+            sample['masked_image'] = y
+
+        # concat normalized idx
+        sample['smoothing_strength'] = torch.ones_like(sample['mask'])*normalized_idx
+
         return sample
 
 

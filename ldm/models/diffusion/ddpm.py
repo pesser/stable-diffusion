@@ -1608,6 +1608,8 @@ class LatentInpaintDiffusion(LatentDiffusion):
                  concat_keys=("mask", "masked_image"),
                  masked_image_key="masked_image",
                  keep_finetune_dims=4,  # if model was trained without concat mode before and we would like to keep these channels
+                 c_concat_log_start=None, # to log reconstruction of c_concat codes
+                 c_concat_log_end=None,
                  *args, **kwargs
                  ):
         ckpt_path = kwargs.pop("ckpt_path", None)
@@ -1618,6 +1620,8 @@ class LatentInpaintDiffusion(LatentDiffusion):
         self.finetune_keys = finetune_keys
         self.concat_keys = concat_keys
         self.keep_dims = keep_finetune_dims
+        self.c_concat_log_start = c_concat_log_start
+        self.c_concat_log_end = c_concat_log_end
         if exists(self.finetune_keys): assert exists(ckpt_path), 'can only finetune from a given checkpoint'
         if exists(ckpt_path):
             self.init_from_ckpt(ckpt_path, ignore_keys)
@@ -1707,6 +1711,9 @@ class LatentInpaintDiffusion(LatentDiffusion):
                 log["conditioning"] = xc
             if ismap(xc):
                 log["original_conditioning"] = self.to_rgb(xc)
+
+        if not (self.c_concat_log_start is None and self.c_concat_log_end is None):
+            log["c_concat_decoded"] = self.decode_first_stage(c_cat[:,self.c_concat_log_start:self.c_concat_log_end])
 
         if plot_diffusion_rows:
             # get diffusion row
