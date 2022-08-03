@@ -23,6 +23,9 @@ cd /fsx/stable-diffusion/stable-diffusion
 
 CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/inpainting/v1-edgeinpainting.yaml"
 
+# start without masking
+EXTRA="data.params.train.postprocess.params.mask_edges=false"
+
 # resume and set new seed to reshuffle data
 #EXTRA="--seed 543 --resume_from_checkpoint ..."
 
@@ -38,4 +41,4 @@ CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/inpainti
 # detect bad gpus early on
 /bin/bash /fsx/stable-diffusion/stable-diffusion/scripts/test_gpu.sh
 
-python main.py --base $CONFIG --gpus 0,1,2,3,4,5,6,7 -t --num_nodes ${WORLD_SIZE} --scale_lr False
+python main.py --base $CONFIG --gpus 0,1,2,3,4,5,6,7 -t --num_nodes ${WORLD_SIZE} --scale_lr False $EXTRA

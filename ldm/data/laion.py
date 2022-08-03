@@ -264,8 +264,8 @@ class AddEdge(PRNGMixin):
         super().__init__()
         assert mode in list(MASK_MODES.keys()), f'unknown mask generation mode "{mode}"'
         self.make_mask = MASK_MODES[mode]
-        self.n_down_choices = [0, 1, 2]
-        self.sigma_choices = [1, 2, 3, 4, 5]
+        self.n_down_choices = [0]
+        self.sigma_choices = [1]
         self.mask_edges = mask_edges
 
     @torch.no_grad()
@@ -285,7 +285,7 @@ class AddEdge(PRNGMixin):
         n_choices = len(self.n_down_choices)*len(self.sigma_choices)
         raveled_idx = np.ravel_multi_index((n_down_idx, sigma_idx),
                                            (len(self.n_down_choices), len(self.sigma_choices)))
-        normalized_idx = raveled_idx/(n_choices-1)
+        normalized_idx = raveled_idx/max(1, n_choices-1)
 
         n_down = self.n_down_choices[n_down_idx]
         sigma = self.sigma_choices[sigma_idx]
@@ -322,6 +322,7 @@ class AddEdge(PRNGMixin):
             sample['masked_image'] = y * (mask < 0.5)
         else:
             sample['masked_image'] = y
+            sample['mask'] = torch.zeros_like(sample['mask'])
 
         # concat normalized idx
         sample['smoothing_strength'] = torch.ones_like(sample['mask'])*normalized_idx
