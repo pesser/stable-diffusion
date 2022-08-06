@@ -17,10 +17,10 @@ model:
     scale_factor: 0.18215
     ckpt_path: "/fsx/stable-diffusion/stable-diffusion/checkpoints/v1pp/v1pp-flatlined-hr.ckpt"
 
-    #concat_keys:
-    #  - mask
-    #  - masked_image
-    #  - smoothing_strength
+    concat_keys:
+      - mask
+      - masked_image
+      - smoothing_strength
 
     c_concat_log_start: 1
     c_concat_log_end: 5
@@ -38,7 +38,7 @@ model:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModel
       params:
         image_size: 32 # unused
-        in_channels: 9  # 4 data + 4 downscaled image + 1 mask
+        in_channels: 10  # 4 data + 4 downscaled image + 1 mask + 1 smoothing strength
         out_channels: 4
         model_channels: 320
         attention_resolutions: [ 4, 2, 1 ]

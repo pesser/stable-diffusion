@@ -24,7 +24,7 @@ cd /fsx/stable-diffusion/stable-diffusion
 CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/inpainting/v1-edgeinpainting.yaml"
 
 # start without masking
-EXTRA="data.params.train.postprocess.params.mask_edges=false"
+EXTRA="data.params.train.postprocess.params.mask_edges=false -f _extracat"
 
 # resume and set new seed to reshuffle data
 #EXTRA="--seed 543 --resume_from_checkpoint ..."

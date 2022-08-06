@@ -268,7 +268,7 @@ class AddEdge(PRNGMixin):
         assert mode in list(MASK_MODES.keys()), f'unknown mask generation mode "{mode}"'
         self.make_mask = MASK_MODES[mode]
         self.n_down_choices = [0]
-        self.sigma_choices = [1]
+        self.sigma_choices = [1, 2]
         self.mask_edges = mask_edges
 
     @torch.no_grad()
