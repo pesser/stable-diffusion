@@ -114,20 +114,22 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
-if __name__ == "__main__":
+def run(
+        config="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/inpainting/v1-finetune-for-inpainting-laion-iaesthe.yaml",
+        #ckpt="/fsx/robin/stable-diffusion/stable-diffusion/logs/2022-07-28T07-44-05_v1-finetune-for-inpainting-laion-aesthetic-larger-masks/checkpoints/last.ckpt",
+        ckpt="/fsx/robin/stable-diffusion/stable-diffusion/logs/2022-08-01T08-52-14_v1-finetune-for-inpainting-laion-aesthetic-larger-masks-and-ucfg/checkpoints/last.ckpt",
+        ):
     st.title("Stable Inpainting")
     state = init()
 
     if not "model" in state:
-        config = "/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/inpainting/v1-finetune-for-inpainting-laion-iaesthe.yaml"
-        ckpt = "/fsx/robin/stable-diffusion/stable-diffusion/logs/2022-07-24T16-01-27_v1-finetune-for-inpainting-laion-iaesthe/checkpoints/last.ckpt"
         config = OmegaConf.load(config)
         model = load_model_from_config(config, ckpt)
         state["model"] = model
 
     uploaded_file = st.file_uploader("Upload image to inpaint")
     if uploaded_file is not None:
-        image = Image.open(io.BytesIO(uploaded_file.getvalue()))
+        image = Image.open(io.BytesIO(uploaded_file.getvalue())).convert("RGB")
         width, height = image.size
         smaller = min(width, height)
         crop = (                    
@@ -206,3 +208,8 @@ if __name__ == "__main__":
                         )
                 st.text("Samples")
                 st.image(samples[0])
+
+
+if __name__ == "__main__":
+    import fire
+    fire.Fire(run)
