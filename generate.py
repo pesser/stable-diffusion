@@ -67,6 +67,42 @@ def make_batch(image, mask, device):
     return batch
 
 
+def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
+    c = False
+    if not isinstance(v0,np.ndarray):
+        c = True
+        v0 = v0.detach().cpu().numpy()
+    if not isinstance(v1,np.ndarray):
+        c = True
+        v1 = v1.detach().cpu().numpy()
+    # Copy the vectors to reuse them later
+    v0_copy = np.copy(v0)
+    v1_copy = np.copy(v1)
+    # Normalize the vectors to get the directions and angles
+    v0 = v0 / np.linalg.norm(v0)
+    v1 = v1 / np.linalg.norm(v1)
+    # Dot product with the normalized vectors (can't use np.dot in W)
+    dot = np.sum(v0 * v1)
+    # If absolute value of dot product is almost 1, vectors are ~colineal, so use lerp
+    if np.abs(dot) > DOT_THRESHOLD:
+        return lerp(t, v0_copy, v1_copy)
+    # Calculate initial angle between v0 and v1
+    theta_0 = np.arccos(dot)
+    sin_theta_0 = np.sin(theta_0)
+    # Angle at timestep t
+    theta_t = theta_0 * t
+    sin_theta_t = np.sin(theta_t)
+    # Finish the slerp algorithm
+    s0 = np.sin(theta_0 - theta_t) / sin_theta_0
+    s1 = sin_theta_t / sin_theta_0
+    v2 = s0 * v0_copy + s1 * v1_copy
+    if c:
+        res = torch.from_numpy(v2).to("cuda")
+    else:
+        res = v2
+    return res
+
+
 def run_inpainting(opt, input_image, mask_image, callback=None, update_image_every=1):
 
     global inpainting_model
@@ -149,8 +185,8 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     
     batch_size = opt.n_samples
 
-    prompt = opt.text_input
-    assert prompt is not None
+    prompt = opt.text_input if isinstance(opt.text_input, str) else opt.text_input[0]
+    assert opt.text_input is not None
     data = [batch_size * [prompt]]
         
     start_code = None
@@ -184,6 +220,79 @@ def run_diffusion(opt, callback=None, update_image_every=1):
 
                     samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                      img_callback=inner_callback if callback else None,
+                                                     conditioning=c,
+                                                     batch_size=opt.n_samples,
+                                                     shape=shape,
+                                                     verbose=False,
+                                                     unconditional_guidance_scale=opt.scale,
+                                                     unconditional_conditioning=uc,
+                                                     eta=opt.ddim_eta,
+                                                     dynamic_threshold=opt.dyn,
+                                                     x_T=start_code)
+
+                    x_samples_ddim = model.decode_first_stage(samples_ddim)
+                    x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+
+                    for x_sample in x_samples_ddim:
+                        x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                        all_samples.append(x_sample.astype(np.uint8))
+
+    return all_samples
+    
+
+def run_diffusion_interpolation(opt, callback=None, update_image_every=1):
+    
+    global model
+    if model is None:        
+        config = OmegaConf.load(f"{opt.config}")
+        model = load_model_from_config(config, f"{opt.ckpt}")
+        model = model.to(device)
+    
+    if opt.plms:
+        sampler = PLMSSampler(model)
+    else:
+        sampler = DDIMSampler(model)
+    
+    batch_size = opt.n_samples
+
+    prompts = opt.text_input
+    assert prompts and len(prompts) > 1
+
+    start_code = None
+    if opt.fixed_code:
+        start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
+
+    with torch.no_grad():
+        with model.ema_scope():
+
+            uc = None
+            if opt.scale != 1.0:
+                uc = model.get_learned_conditioning(batch_size * [""])
+            
+            c_array = []
+            for prompt in prompts:
+                if isinstance(prompt, tuple):
+                    prompt = list(prompt)
+                c_array.append(model.get_learned_conditioning(prompt))
+
+            shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
+            fs = np.linspace(0, 1, opt.n_interpolate)
+
+            if opt.seed:
+                seed_everything(opt.seed)
+            else:
+                seed_everything(42)
+
+            all_samples = list()
+            
+            for c0, c1 in zip(c_array[:-1], c_array[1:]):
+                for f in fs:
+                    
+                    #c = f * c0 + (1 - f) * c1
+                    c = slerp(f, c0, c1)
+
+                    samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
+                                                     #img_callback=inner_callback if callback else None,
                                                      conditioning=c,
                                                      batch_size=opt.n_samples,
                                                      shape=shape,

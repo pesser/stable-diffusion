@@ -1,2 +1,0 @@
-#python scripts/txt2img.py --prompt "The Hulk as a Muppet" --outdir results --scale 5.0 --plms --n_samples 1 --n_iter 1 --ckpt v1pp-flatlined-hr.ckpt --config configs/stable-diffusion/v1_improvedaesthetics.yaml --C 12 --f 12 --H 512 --W 512
-python scripts/txt2img.py --prompt "The Hulk as a Muppet" --outdir results --scale 5.0 --plms --n_samples 1 --n_iter 1 --ckpt v1pp-flatlined-hr.ckpt --config configs/stable-diffusion/v1_improvedaesthetics.yaml --C 4 --f 8 --H 512 --W 512

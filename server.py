@@ -1,11 +1,11 @@
 import argparse
 import os
 import random
-from dataclasses import dataclass, field
-from io import BytesIO
 import base64
 import PIL
+from io import BytesIO
 
+from settings import StableDiffusionSettings
 from generate import *
 
 from eden.block import Block
@@ -29,28 +29,6 @@ def b64str_to_PIL(data):
     return pil_img
 
 
-@dataclass
-class StableDiffusionSettings:
-    input_image: PIL.Image = None
-    mask_image: PIL.Image = None
-    text_input: str = "a painting of a virus monster playing guitar"
-    ddim_steps: int = 50
-    plms: bool = False
-    ddim_eta: float = 0.0
-    n_iter: int = 1
-    H: int = 256
-    W: int = 256
-    C: int = 4
-    f: int = 8    
-    n_samples: int = 8
-    scale: float = 5.0
-    dyn: float = None
-    config: str = "logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml"
-    ckpt: str = "logs/f8-kl-clip-encoder-256x256-run1/checkpoints/last.ckpt"
-    seed: int = 42
-    fixed_code: bool = False
-
-
 def convert_samples_to_eden(samples, intermediate=False):
     results = {}
     if intermediate:
@@ -65,12 +43,13 @@ def convert_samples_to_eden(samples, intermediate=False):
 
 my_args = {
     "mode": "generate",
+    "text_inputs": ["Hello world"], 
     "input_image": "",
     "mask_image": "",
-    "text_input": "Hello world", 
     "width": 512,
     "height": 512,
     "n_samples": 1,
+    "n_interpolate": 1,
     "n_iter": 1,
     "scale": 5.0,
     "ddim_steps": 50,
@@ -84,18 +63,19 @@ my_args = {
 def run(config):
     
     mode = config["mode"]
-    assert(mode in ["generate", "inpaint"], \
+    assert(mode in ["generate", "inpaint", "interpolate"], \
         f"Error: mode {mode} not recognized (generate or inpaint allowed)")
 
     settings = StableDiffusionSettings(
-        text_input = config["text_input"],
+        text_inputs = config["text_inputs"],
         ddim_steps = config["ddim_steps"],
         scale = config["scale"],
         plms = config["plms"],
         n_samples = config["n_samples"],
         n_iter = config["n_iter"],
-        ckpt = "v1pp-flatline-pruned.ckpt", # "f16-33k+12k-hr_pruned.ckpt"
-        config = "configs/stable-diffusion/v1_improvedaesthetics.yaml", # "configs/stable-diffusion/txt2img-multinode-clip-encoder-f16-768-laion-hr-inference.yaml",
+        n_interpolate = config["n_interpolate"],
+        ckpt = "v1pp-flatlined-hr.ckpt",
+        config = "configs/stable-diffusion/v1_improvedaesthetics.yaml", 
         C = config['C'],
         f = config['f'],
         W = config["width"] - (config["width"] % 128),
@@ -117,7 +97,30 @@ def run(config):
         mask_image = b64str_to_PIL(config["mask_image"])
         output_image = run_inpainting(settings, input_image, mask_image, callback=callback, update_image_every=10)
         final_samples = [output_image]        
-    
+
+    elif config["mode"] == "interpolate":
+
+        # update schema: text_inputs
+        # put in bucket
+        
+        # make a video
+        # intermediate frames / callback function
+        # if boomerang, cache frames
+
+
+        # update collage
+        # update react-app
+        # update discord-bots
+
+        
+
+        run_diffusion_interpolation(settings)
+
+
+
+        # output_image = run_inpainting(settings, input_image, mask_image, callback=callback, update_image_every=10)
+        # final_samples = [output_image]        
+
     results = convert_samples_to_eden(final_samples)
 
     return results
