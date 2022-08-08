@@ -185,8 +185,8 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     
     batch_size = opt.n_samples
 
-    prompt = opt.text_input if isinstance(opt.text_input, str) else opt.text_input[0]
     assert opt.text_input is not None
+    prompt = opt.text_input
     data = [batch_size * [prompt]]
         
     start_code = None
@@ -255,7 +255,7 @@ def run_diffusion_interpolation(opt, callback=None, update_image_every=1):
     
     batch_size = opt.n_samples
 
-    prompts = opt.text_input
+    prompts = opt.interpolation_texts
     assert prompts and len(prompts) > 1
 
     start_code = None

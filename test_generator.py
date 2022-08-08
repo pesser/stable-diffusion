@@ -20,7 +20,8 @@ def test_generate():
 def test_interpolation():
     opt = StableDiffusionSettings(
         mode = "interpolate",
-        text_input = [
+        text_input = 'Steampunk robot face',
+        interpolation_texts = [
             'Steampunk robot face',
             'Noir detective with cyclops eye'
         ],
