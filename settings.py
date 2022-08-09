@@ -25,14 +25,14 @@ class StableDiffusionSettings:
     mask_image: Image = None
 
     # generation params
-    seed: int = 42
+    seed: int = 13
     fixed_code: bool = False
     ddim_steps: int = 50
     plms: bool = False
     ddim_eta: float = 0.0
     C: int = 4
     f: int = 8    
-    scale: float = 5.0
+    scale: float = 12.5
     dyn: float = None
 
     # dimensions, quantity
