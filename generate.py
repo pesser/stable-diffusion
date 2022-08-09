@@ -193,6 +193,9 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     if opt.fixed_code:
         start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
 
+    if opt.seed:
+        seed_everything(opt.seed)
+
     all_samples = list()
 
     def inner_callback(img, i):

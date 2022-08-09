@@ -95,9 +95,29 @@ def grid_search():
                         W = 512)
 
                     results = run_diffusion(opt)
-                    Image.fromarray(results[0]).save('results/%s_%d_%d_%d.png' % (text_input, seed, d, 1 if plms else 0))
+                    Image.fromarray(results[0]).save('results3/%s_%d_%d_%d_512.png' % (text_input, seed, d, 1 if plms else 0))
+
+
+    for seed in [13, 50, 100]:
+        for t, text_input in enumerate(text_inputs):
+            for d in [10, 20, 40, 60]:
+                for plms in [True, False]:
+
+                    opt = StableDiffusionSettings(
+                        mode = "generate",
+                        text_input = text_input,
+                        ddim_steps = d,
+                        plms = plms,
+                        scale = 12,
+                        seed = seed,
+                        H = 768,
+                        W = 768)
+
+                    results = run_diffusion(opt)
+                    Image.fromarray(results[0]).save('results3/%s_%d_%d_%d_768.png' % (text_input, seed, d, 1 if plms else 0))
 
 
 
 # test_generate()
 # test_interpolation()
+# grid_search()
