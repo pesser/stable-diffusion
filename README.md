@@ -1,3 +1,9 @@
+Development repository. Please see [CompVis/stable-diffusion](https://github.com/CompVis/stable-diffusion/) for the Stable Diffusion release.
+
+
+---
+
+
 # Latent Diffusion Models
 [arXiv](https://arxiv.org/abs/2112.10752) | [BibTeX](#bibtex)
 
