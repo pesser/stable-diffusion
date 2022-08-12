@@ -16,7 +16,7 @@ Development repository. Please see [CompVis/stable-diffusion](https://github.com
 [**High-Resolution Image Synthesis with Latent Diffusion Models**](https://arxiv.org/abs/2112.10752)<br/>
 [Robin Rombach](https://github.com/rromb)\*,
 [Andreas Blattmann](https://github.com/ablattmann)\*,
-[Dominik Lorenz](https://github.com/qp-qp)\,
+[Dominik Lorenz](https://github.com/qp-qp),
 [Patrick Esser](https://github.com/pesser),
 [Björn Ommer](https://hci.iwr.uni-heidelberg.de/Staff/bommer)<br/>
 \* equal contribution
@@ -26,6 +26,10 @@ Development repository. Please see [CompVis/stable-diffusion](https://github.com
 </p>
 
 ## News
+
+### July 2022
+- Replicate web demo and API is available here [![Replicate](https://replicate.com/pesser/stable-diffusion/badge)](https://replicate.com/pesser/stable-diffusion)
+
 ### April 2022
 - Thanks to [Katherine Crowson](https://github.com/crowsonkb), classifier-free guidance received a ~2x speedup and the [PLMS sampler](https://arxiv.org/abs/2202.09778) is available. See also [this PR](https://github.com/CompVis/latent-diffusion/pull/51).
 

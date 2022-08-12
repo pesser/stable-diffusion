@@ -1,0 +1,26 @@
+build:
+  cuda: "11.3"
+  gpu: true
+  python_version: "3.8"
+  system_packages:
+    - "libgl1-mesa-glx"
+    - "libglib2.0-0"
+  python_packages:
+    - "ipython==7.21.0"
+    - "albumentations==0.4.3"
+    - "opencv-python==4.6.0.66"
+    - "pudb==2019.2"
+    - "imageio==2.9.0"
+    - "imageio-ffmpeg==0.4.2"
+    - "pytorch-lightning==1.4.2"
+    - "torchmetrics==0.6"
+    - "omegaconf==2.1.1"
+    - "test-tube==0.7.5"
+    - "einops==0.3.0"
+    - "torch-fidelity==0.3.0"
+    - "transformers==4.19.2"
+    - "webdataset==0.2.5"
+  run:
+    - git clone https://github.com/CompVis/taming-transformers && pip install -e ./taming-transformers
+
+predict: "predict.py:Predictor"
