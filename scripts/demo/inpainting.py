@@ -1,3 +1,4 @@
+import math
 import streamlit as st
 import torch
 import cv2
@@ -48,6 +49,7 @@ def sample(
                                              ddim_steps=ddim_steps, eta=ddim_eta,
                                              unconditional_guidance_scale=unconditional_guidance_scale,
                                              unconditional_conditioning=uc_full,
+                                             shape=(self.channels, H//8, W//8)
                                              )
             samples = self.decode_first_stage(samples_cfg)
     else:
@@ -61,10 +63,6 @@ def np2batch(
         image,
         mask,
         txt):
-    print("###")
-    print(image.shape)
-    print(mask.shape)
-    print("###")
     # image hwc in -1 1
     image = torch.from_numpy(image).to(dtype=torch.float32)/127.5-1.0
 
@@ -119,6 +117,7 @@ def run(
         #ckpt="/fsx/robin/stable-diffusion/stable-diffusion/logs/2022-07-28T07-44-05_v1-finetune-for-inpainting-laion-aesthetic-larger-masks/checkpoints/last.ckpt",
         ckpt="/fsx/robin/stable-diffusion/stable-diffusion/logs/2022-08-01T08-52-14_v1-finetune-for-inpainting-laion-aesthetic-larger-masks-and-ucfg/checkpoints/last.ckpt",
         ):
+    st.set_page_config(layout="wide")
     st.title("Stable Inpainting")
     state = init()
 
@@ -131,15 +130,50 @@ def run(
     if uploaded_file is not None:
         image = Image.open(io.BytesIO(uploaded_file.getvalue())).convert("RGB")
         width, height = image.size
-        smaller = min(width, height)
-        crop = (                    
-            (width-smaller)//2,                                                          
-            (height-smaller)//2,
-            (width-smaller)//2+smaller,
-            (height-smaller)//2+smaller,
-        )
-        image = image.crop(crop)
-        image = image.resize((512, 512))
+        orig_width, orig_height = image.size
+        resize = st.selectbox("Resize", ["padtop", "crop", "keepar"])
+        if resize=="crop":
+            smaller = min(width, height)
+            crop = (                    
+                (width-smaller)//2,                                                          
+                (height-smaller)//2,
+                (width-smaller)//2+smaller,
+                (height-smaller)//2+smaller,
+            )
+            image = image.crop(crop)
+            image = image.resize((512, 512))
+        elif resize=="padtop":
+            pad = max(width, height)-min(width, height)
+            padh = max(0, width - height)
+            padw = max(0, height - width)
+
+            full = np.zeros((height+padh, width+padw, 3), dtype=np.uint8)
+            print(full.shape)
+            image = np.array(image)
+            full[padh:, padw:, :] = image
+            image = full
+            image = Image.fromarray(image)
+            image = image.resize((512, 512))
+            invalidh = int(math.ceil(512/(height+padh)*padh))+1
+        elif resize=="keepar":
+            target_size = 512
+            ar = height/width
+            if width < height:
+                target_width = 512
+                target_height = target_width/width*height
+            else:
+                target_height = 512
+                target_width = target_height/height*width
+
+            mod = 16
+            target_height = mod*round(target_height/mod)
+            target_width = mod*round(target_width/mod)
+
+            image = image.resize((target_width, target_height))
+
+        width, height = image.size
+        print(width, height)
+
         #st.write("Uploaded Image")                                                       
         #st.image(image)
 
@@ -150,11 +184,10 @@ def run(
             stroke_width=stroke_width,
             stroke_color="rgb(0, 0, 0)",
             background_color="rgb(0, 0, 0)",
-            background_image=image if image is not None else Image.fromarray(255*np.ones((512,512,3),
-                                                                     dtype=np.uint8)),
+            background_image=image,
             update_streamlit=False,
-            height=image.size[1] if image is not None else 512,
-            width=image.size[0] if image is not None else 512,
+            height=height,
+            width=width,
             drawing_mode="freedraw",
             point_display_radius=0,
             key="canvas",
@@ -163,6 +196,8 @@ def run(
             mask = canvas_result.image_data
             mask = np.array(mask)[:,:,[3,3,3]]
             mask = mask > 127
+            if resize == "padtop":
+                mask[:invalidh, :] = True
 
             # visualize
             bdry = cv2.dilate(mask.astype(np.uint8), np.ones((3,3), dtype=np.uint8))
@@ -180,34 +215,58 @@ def run(
             t_total = int(st.number_input("Diffusion steps", value=50))
 
             if st.button("Sample"):
-                st.text("Sampling")
-                batch_progress = st.progress(0)
-                batch_total = 3
-                t_progress = st.progress(0)
-                result = st.empty()
-                #canvas = make_canvas(2, 3)
-                def callback(x, batch, t):
-                    #result.text(f"{batch}, {t}")
-                    batch_progress.progress(min(1.0, (batch+1)/batch_total))
-                    t_progress.progress(min(1.0, (t+1)/t_total))
-                    update_canvas(canvas, x, batch)
-                    result.image(canvas)
+                with torch.inference_mode():
+                    with torch.autocast("cuda"):
+                        st.text("Sampling")
+                        batch_progress = st.progress(0)
+                        batch_total = 3
+                        t_progress = st.progress(0)
+                        result = st.empty()
+                        #canvas = make_canvas(2, 3)
+                        def callback(x, batch, t):
+                            #result.text(f"{batch}, {t}")
+                            batch_progress.progress(min(1.0, (batch+1)/batch_total))
+                            t_progress.progress(min(1.0, (t+1)/t_total))
+                            update_canvas(canvas, x, batch)
+                            result.image(canvas)
 
-                samples = sample(
-                        state["model"],
-                        prompt,
-                        n_runs=3,
-                        n_samples=2,
-                        H=512,
-                        W=512,
-                        scale=scale,
-                        ddim_steps=t_total,
-                        callback=callback,
-                        image=np.array(image),
-                        mask=np.array(mask),
-                        )
-                st.text("Samples")
-                st.image(samples[0])
+                        samples = sample(
+                                state["model"],
+                                prompt,
+                                n_runs=3,
+                                n_samples=2,
+                                H=height,
+                                W=width,
+                                scale=scale,
+                                ddim_steps=t_total,
+                                callback=callback,
+                                image=np.array(image),
+                                mask=np.array(mask),
+                                )
+                        st.text("Samples")
+                        st.image(samples[0])
+
+                        orig = samples[0]
+
+                        if resize=="padtop":
+                            orig = Image.fromarray(orig)
+                            orig = orig.resize((orig_width+padw, orig_height+padh))
+                            orig = np.array(orig)
+                            orig = orig[padh:, padw:]
+                        else:
+                            orig = Image.fromarray(orig)
+                            orig = orig.resize((orig_width, orig_height))
+                            orig = np.array(orig)
+
+                        orig = Image.fromarray(orig).save("tmp.png")
+                        with open("tmp.png", "rb") as f:
+                            st.download_button(
+                                    "Original Image",
+                                    data=f,
+                                    file_name=prompt.replace(" ", "_")+".png",
+                                    mime=f"image/png",
+                                    )
+
 
 
 if __name__ == "__main__":
