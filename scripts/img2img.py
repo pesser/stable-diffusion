@@ -1,6 +1,6 @@
 """make variations of input image"""
 
-import argparse, os, sys, glob
+import argparse, os
 import PIL
 import torch
 import numpy as np

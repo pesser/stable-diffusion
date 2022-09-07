@@ -1,5 +1,7 @@
 import socket
-try:
+
+
+def main() -> int:
     import torch
     n_gpus = torch.cuda.device_count()
     print(f"checking {n_gpus} gpus.")
@@ -16,7 +18,10 @@ try:
         out = net(data)
         out.backward(torch.randn_like(out))
         torch.cuda.synchronize()
-except RuntimeError as err:
+    return 1
+
+
+def runtime_error_case() -> None:
     import requests
     import datetime
     import os
@@ -26,5 +31,12 @@ except RuntimeError as err:
     resp = requests.get('http://169.254.169.254/latest/meta-data/instance-id')
     print(f'ERROR at {ts} on {hostname}/{resp.text} (CUDA_VISIBLE_DEVICES={device}): {type(err).__name__}: {err}', flush=True)
     raise err
-else:
-    print(f"checked {socket.gethostname()}")
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except RuntimeError as err:
+        runtime_error_case()
+    else:
+        print(f"checked {socket.gethostname()}")
