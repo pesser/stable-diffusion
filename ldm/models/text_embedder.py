@@ -39,7 +39,7 @@ class BaseTextEmbedder(torch.nn.Module):
             x, word_embeddings_weight = x.cpu().detach(), self.word_embeddings.weight.cpu().detach()
             x = x[..., None].permute(0, 2, 3, 1) # bxlx1xc
             logits = (x - word_embeddings_weight).pow(2).mean(dim=-1)
-            x = logits.argmax(dim=-1)
+            x = logits.argmin(dim=-1)
         
         if do_detokenize:
             txts = []

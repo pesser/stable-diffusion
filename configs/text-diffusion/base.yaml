@@ -56,7 +56,7 @@ model: # add base config
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 4
+    batch_size: 256
     num_workers: 16
     wrap: false
     train:
@@ -73,11 +73,11 @@ lightning:
     text_logger:
       target: main.TextLogger
       params:
-        batch_frequency: 10
-        max_texts: 8
+        batch_frequency: 1000
+        max_texts: 4
         increase_log_steps: False
         log_first_step: False
   trainer:
     benchmark: True
-    max_steps: 100000
+    max_steps: 1000000
   

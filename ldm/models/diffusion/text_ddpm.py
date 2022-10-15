@@ -967,18 +967,18 @@ class TextDiffusion(DDPM):
                 xc = batch['human_label']
                 log['conditioning'] = [str(i) for i in xc]
         
-        if plot_diffusion_rows:
-            diffusion_row = list()
-            z_start = z[:n_row]
-            for t in range(self.num_timesteps):
-                if t % self.log_every_t == 0 or t == self.num_timesteps - 1:
-                    t = repeat(torch.tensor([t]), '1 -> b', b=n_row)
-                    t = t.to(self.device).long()
-                    noise = torch.randn_like(z_start)
-                    z_noisy = self.q_sample(x_start=z_start, t=t, noise=noise)
-                    diffusion_row.extend(self.decode_first_stage(z_noisy, do_detokenize=True) + [''])
+        # if plot_diffusion_rows:
+        #     diffusion_row = list()
+        #     z_start = z[:n_row]
+        #     for t in range(self.num_timesteps):
+        #         if t % self.log_every_t == 0 or t == self.num_timesteps - 1:
+        #             t = repeat(torch.tensor([t]), '1 -> b', b=n_row)
+        #             t = t.to(self.device).long()
+        #             noise = torch.randn_like(z_start)
+        #             z_noisy = self.q_sample(x_start=z_start, t=t, noise=noise)
+        #             diffusion_row.extend(self.decode_first_stage(z_noisy, do_detokenize=True) + [''])
             
-            log['diffusion_row'] = diffusion_row
+        #     log['diffusion_row'] = diffusion_row
         
         if sample:
             # get denoise row
@@ -1003,13 +1003,13 @@ class TextDiffusion(DDPM):
                 x_samples_cfg = self.decode_first_stage(samples_cfg, do_detokenize=True)
                 log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
         
-        if plot_progressive_rows:
-            with ema_scope("Plotting Progressives"):
-                txt, progressives = self.progressive_denoising(c,
-                                                               shape=(self.channels, self.text_length),
-                                                               batch_size=N)
-                prog_row = self._get_denoise_row_from_list(progressives)
-                log["progressive_row"] = prog_row
+        # if plot_progressive_rows:
+        #     with ema_scope("Plotting Progressives"):
+        #         txt, progressives = self.progressive_denoising(c,
+        #                                                        shape=(self.channels, self.text_length),
+        #                                                        batch_size=N)
+        #         prog_row = self._get_denoise_row_from_list(progressives)
+        #         log["progressive_row"] = prog_row
         
         if return_keys:
             if np.intersect1d(list(log.keys()), return_keys).shape[0] == 0:
