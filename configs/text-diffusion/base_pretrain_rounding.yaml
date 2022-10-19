@@ -1,0 +1,88 @@
+model: # add base config
+  base_learning_rate: 1.0e-04
+  target: ldm.models.diffusion.text_ddpm.TextDiffusionRounding
+  params:
+    linear_start: 0.00085
+    linear_end: 0.0120
+    num_timesteps_cond: 1
+    log_every_t: 200
+    timesteps: 1000
+    first_stage_key: input_ids
+    cond_stage_key: txt
+    text_length: 64
+    channels: 1024
+    cond_stage_trainable: false
+    first_stage_trainable: true
+    conditioning_key: crossattn
+    monitor: val/loss_simple_ema
+    scale_factor: 1.4712
+    use_ema: False
+    parameterization: x0
+    l_simple_weight: 1.
+    original_elbo_weight: 1.
+    # rounding_weight: 0.01
+
+    scheduler_config: # 10000 warmup steps
+      target: ldm.lr_scheduler.LambdaLinearScheduler
+      params:
+        warm_up_steps: [ 10000 ]
+        cycle_lengths: [ 10000000000000 ] # incredibly large number to prevent corner cases
+        f_start: [ 1.e-6 ]
+        f_max: [ 1. ]
+        f_min: [ 1. ]
+
+    unet_config:
+      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
+      params:
+        image_size: 32 # unused
+        dims: 1
+        in_channels: 1024
+        out_channels: 1024
+        model_channels: 320
+        attention_resolutions: [ 4, 2, 1 ]
+        num_res_blocks: 2
+        channel_mult: [ 1, 2, 4, 4 ]
+        num_heads: 8
+        # use_spatial_transformer: True
+        # transformer_depth: 1
+        # context_dim: 768
+        use_checkpoint: True
+        legacy: False
+
+    first_stage_config:
+      target: ldm.models.text_embedder.RobertaTextEmbedderLMHead
+      params:
+        embedding_ckpt_path: /zhangpai21/workspace/zwd/ckpts/roberta-large/1/mp_rank_00_model_states.pt
+        vocab_size: 50265
+        hidden_size: 1024
+        sample_length: 64
+    cond_stage_config: __is_unconditional__
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 64
+    num_workers: 16
+    wrap: false
+    train:
+      target: ldm.data.textdataset.E2EDataset
+      params:
+        path: /zhangpai21/workspace/zwd/e2e-dataset/trainset.csv
+        sample_length: 64
+
+lightning:
+  modelcheckpoint:
+    params:
+      every_n_train_steps: 10000
+  callbacks:
+    text_logger:
+      target: main.TextLogger
+      params:
+        batch_frequency: 1000
+        max_texts: 64
+        increase_log_steps: False
+        log_first_step: False
+  trainer:
+    benchmark: True
+    max_steps: 1000000
+  

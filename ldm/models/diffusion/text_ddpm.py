@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import LambdaLR
@@ -346,7 +347,7 @@ class DDPM(pl.LightningModule):
         else:
             raise NotImplementedError(f"Paramterization {self.parameterization} not yet supported")
 
-        loss = self.get_loss(model_out, target, mean=False).mean(dim=[1, 2, 3])
+        loss = self.get_loss(model_out, target, mean=False).mean(dim=[1, 2])
 
         log_prefix = 'train' if self.training else 'val'
 
@@ -437,6 +438,7 @@ class TextDiffusion(DDPM):
                  concat_mode=True,
                  cond_stage_forward=None,
                  conditioning_key=None,
+                 first_stage_trainable=False,
                  scale_factor=1.0,
                  scale_by_std=False,
                  *args, **kwargs):
@@ -454,6 +456,7 @@ class TextDiffusion(DDPM):
         self.concat_mode = concat_mode
         self.cond_stage_trainable = cond_stage_trainable
         self.cond_stage_key = cond_stage_key
+        self.first_stage_trainable = first_stage_trainable
         try:
             self.num_downs = len(first_stage_config.params.ddconfig.ch_mult) - 1
         except:
@@ -506,10 +509,11 @@ class TextDiffusion(DDPM):
             
     def instantiate_first_stage(self, config):
         model = instantiate_from_config(config)
-        self.first_stage_model = model.eval()
-        self.first_stage_model.train = disabled_train
-        for param in self.first_stage_model.parameters():
-            param.requires_grad = False
+        self.first_stage_model = model.train()
+        # self.first_stage_model = model.eval()
+        # self.first_stage_model.train = disabled_train
+        # for param in self.first_stage_model.parameters():
+        #     param.requires_grad = False
             
     def instantiate_cond_stage(self, config):
         if not self.cond_stage_trainable:
@@ -632,11 +636,11 @@ class TextDiffusion(DDPM):
         return self.first_stage_model.tokenize(x)
     
     def shared_step(self, batch, **kwargs):
-        x, c = self.get_input(batch, self.first_stage_key)
-        loss = self(x, c)
+        x, c, ids = self.get_input(batch, self.first_stage_key, return_x=True)
+        loss = self(x, ids, c)
         return loss
     
-    def forward(self, x, c, *args, **kwargs):
+    def forward(self, x, ids, c, *args, **kwargs):
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None
@@ -645,7 +649,7 @@ class TextDiffusion(DDPM):
             if self.shorten_cond_schedule:  # TODO: drop this option
                 tc = self.cond_ids[t].to(self.device)
                 c = self.q_sample(x_start=c, t=tc, noise=torch.randn_like(c.float()))
-        return self.p_losses(x, c, t, *args, **kwargs)
+        return self.p_losses(x, ids, c, t, *args, **kwargs)
     
     
     def apply_model(self, x_noisy, t, cond, return_ids=False):
@@ -684,7 +688,10 @@ class TextDiffusion(DDPM):
         kl_prior = normal_kl(mean1=qt_mean, logvar1=qt_log_variance, mean2=0.0, logvar2=0.0)
         return mean_flat(kl_prior) / np.log(2.0)
 
-    def p_losses(self, x_start, cond, t, noise=None):
+    def p_losses(self, x_start, ids, cond, t, noise=None):
+        if self.first_stage_trainable:
+            x_start = self.get_first_stage_encoding(self.first_stage_model.encode(ids, do_tokenize=False))
+        
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         model_output = self.apply_model(x_noisy, t, cond)
@@ -1020,7 +1027,7 @@ class TextDiffusion(DDPM):
     
     def configure_optimizers(self):
         lr = self.learning_rate
-        params = list(self.model.parameters())
+        params = list(self.model.parameters()) + list(self.first_stage_model.parameters())
         if self.cond_stage_trainable:
             print(f"{self.__class__.__name__}: Also optimizing conditioner params!")
             params = params + list(self.cond_stage_model.parameters())
@@ -1041,6 +1048,99 @@ class TextDiffusion(DDPM):
                 }]
             return [opt], scheduler
         return opt
+    
+class TextDiffusionRounding(TextDiffusion):
+    def __init__(self, tT_weight=1., nll_weight=1.,
+                 *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tT_weight = tT_weight
+        self.nll_weight = nll_weight
+    
+    def get_x_start(self, x_start_mean, std):
+        '''
+        Using the interpolating policy OR using the convolution policy...
+        :param x_start_mean:
+        :return:
+        '''
+        noise = torch.randn_like(x_start_mean)
+        # print(std.shape, noise.shape, x_start_mean.shape)
+        assert noise.shape == x_start_mean.shape
+        # print(x_start_mean.device, noise.device)
+        return x_start_mean + std * noise
+    
+    def token_discrete_loss(self, x_t, get_logits, input_ids):
+        # reshaped_x_t = x_t.permute(0, 2, 1)
+        logits = get_logits(x_t)  # bsz, seqlen, vocab
+        # print(logits.shape)
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+        decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
+        # print(decoder_nll.shape)
+        decoder_nll = decoder_nll.mean(dim=-1)
+        return decoder_nll
+    
+    def p_losses(self, x_start, ids, cond, t, noise=None):
+        if self.first_stage_trainable:
+            x_start_mean = self.get_first_stage_encoding(self.first_stage_model.encode(ids, do_tokenize=False))
+        else:
+            x_start_mean = x_start
+        
+        std = extract_into_tensor(self.sqrt_one_minus_alphas_cumprod,
+                                   torch.tensor([0]).to(x_start_mean.device),
+                                   x_start_mean.shape)
+        x_start_log_var = 2 * torch.log(std)
+        x_start = self.get_x_start(x_start_mean, std)
+        
+        noise = default(noise, lambda: torch.randn_like(x_start))
+        x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
+        model_output = self.apply_model(x_noisy, t, cond)
+        
+        loss_dict = {}
+        prefix = 'train' if self.training else 'val'
+        
+        if self.parameterization == "x0":
+            target = x_start
+        elif self.parameterization == "eps":
+            target = noise
+        else:
+            raise NotImplementedError()
+        
+        loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2])
+        
+        if self.parameterization == "x0":
+            model_out_x_start = model_output
+        else:
+            model_out_x_start = self.predict_start_from_noise(x_t=x_noisy, t=t, noise=model_output)
+            
+        loss_t0 = mean_flat((x_start_mean - model_out_x_start) ** 2)
+        t0_mask = (t == 0)
+        loss_simple = torch.where(t0_mask, loss_t0, loss_simple)
+        loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
+        
+        logvar_t = self.logvar[t].to(self.device)
+        loss = loss_simple / torch.exp(logvar_t) + logvar_t
+        # loss = loss_simple / torch.exp(self.logvar) + self.logvar
+        if self.learn_logvar:
+            loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
+            loss_dict.update({'logvar': self.logvar.data.mean()})
+        loss = self.l_simple_weight * loss.mean()
+
+        loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2))
+        loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
+        loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
+        loss += (self.original_elbo_weight * loss_vlb)
+        
+        out_mean, _, _ = self.q_mean_variance(x_start, torch.LongTensor([self.num_timesteps - 1]).to(x_start.device))
+        loss_tT =  mean_flat(out_mean ** 2)
+        loss_dict.update({f'{prefix}/loss_tT': loss_tT.mean()})
+        loss += (self.tT_weight * loss_tT.mean())
+        
+        get_logits = self.first_stage_model.get_logits
+        loss_nll = self.token_discrete_loss(x_start, get_logits, ids)
+        loss_dict.update({f'{prefix}/loss_nll': loss_nll.mean()})
+        loss += (self.nll_weight * loss_nll.mean())
+        loss_dict.update({f'{prefix}/loss': loss})
+        
+        return loss, loss_dict
     
 class DiffusionWrapper(pl.LightningModule):
     def __init__(self, diff_model_config, conditioning_key):
