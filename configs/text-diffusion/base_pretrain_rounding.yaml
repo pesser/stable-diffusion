@@ -1,5 +1,5 @@
 model: # add base config
-  base_learning_rate: 1.0e-04
+  base_learning_rate: 1.0e-05
   target: ldm.models.diffusion.text_ddpm.TextDiffusionRounding
   params:
     linear_start: 0.00085
@@ -20,7 +20,7 @@ model: # add base config
     parameterization: x0
     l_simple_weight: 1.
     original_elbo_weight: 1.
-    # rounding_weight: 0.01
+    nll_weight: 0.001
 
     scheduler_config: # 10000 warmup steps
       target: ldm.lr_scheduler.LambdaLinearScheduler
@@ -78,10 +78,12 @@ lightning:
     text_logger:
       target: main.TextLogger
       params:
-        batch_frequency: 1000
+        batch_frequency: 10000
         max_texts: 64
         increase_log_steps: False
         log_first_step: False
+        log_texts_kwargs:
+          ddim_steps:
   trainer:
     benchmark: True
     max_steps: 1000000

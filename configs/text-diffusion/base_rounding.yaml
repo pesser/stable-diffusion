@@ -1,6 +1,6 @@
 model: # add base config
   base_learning_rate: 1.0e-04
-  target: ldm.models.diffusion.text_ddpm.TextDiffusion
+  target: ldm.models.diffusion.text_ddpm.TextDiffusionRounding
   params:
     linear_start: 0.00085
     linear_end: 0.0120
@@ -12,7 +12,7 @@ model: # add base config
     text_length: 64
     channels: 16
     cond_stage_trainable: false
-    first_stage_trainable: false
+    first_stage_trainable: true
     conditioning_key: crossattn
     monitor: val/loss_simple_ema
     # scale_factor: 0.18215
@@ -21,6 +21,7 @@ model: # add base config
     parameterization: x0
     l_simple_weight: 1.
     original_elbo_weight: 1.
+    # rounding_weight: 0.01
 
     scheduler_config: # 10000 warmup steps
       target: ldm.lr_scheduler.LambdaLinearScheduler
@@ -50,7 +51,7 @@ model: # add base config
         legacy: False
 
     first_stage_config:
-      target: ldm.models.text_embedder.RobertaTextEmbedder
+      target: ldm.models.text_embedder.RobertaTextEmbedderLMHead
       params:
         # embedding_ckpt_path: /zhangpai21/workspace/zwd/ckpts/roberta-large/1/mp_rank_00_model_states.pt
         vocab_size: 50265

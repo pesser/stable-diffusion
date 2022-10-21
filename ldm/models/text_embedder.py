@@ -58,7 +58,7 @@ class RobertaTextEmbedder(nn.Module):
             return x
 
 class RobertaTextEmbedderLMHead(RobertaTextEmbedder):
-    def __init__(self, vocab_size, hidden_size, sample_length, embedding_ckpt_path=None, embedding_init_std=None, tokenizer_path='', **kwargs):
+    def __init__(self, vocab_size, hidden_size, sample_length, embedding_ckpt_path=None, embedding_init_std=0.02, tokenizer_path='', **kwargs):
         super().__init__(vocab_size, hidden_size, sample_length, embedding_ckpt_path, embedding_init_std, tokenizer_path, **kwargs)
         self.lm_head = nn.Linear(hidden_size, vocab_size)
         

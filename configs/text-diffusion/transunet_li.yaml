@@ -32,22 +32,25 @@ model: # add base config
         f_min: [ 1. ]
 
     unet_config:
-      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
+      target: ldm.modules.diffusionmodules.transformer_li.TransUNetModel
       params:
-        image_size: 32 # unused
-        dims: 1
         in_channels: 16
+        model_channels: 128
         out_channels: 16
-        model_channels: 320
-        attention_resolutions: [ 4, 2, 1 ]
         num_res_blocks: 2
-        channel_mult: [ 1, 2, 4, 4 ]
+        attention_resolutions: [ 4, 8 ]
+        dropout: 0
+        channel_mult: [ 1, 2, 3, 4 ]
+        dims: 1
+        num_classes:
+        use_checkpoint: False
         num_heads: 8
+        num_heads_upsample: -1
+        use_scale_shift_norm: True
+        config:
         # use_spatial_transformer: True
         # transformer_depth: 1
         # context_dim: 768
-        use_checkpoint: True
-        legacy: False
 
     first_stage_config:
       target: ldm.models.text_embedder.RobertaTextEmbedder
