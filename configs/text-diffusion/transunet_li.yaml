@@ -53,13 +53,15 @@ model: # add base config
         # context_dim: 768
 
     first_stage_config:
-      target: ldm.models.text_embedder.RobertaTextEmbedder
+      target: ldm.models.text_embedder.TextEmbedder
       params:
         # embedding_ckpt_path: /zhangpai21/workspace/zwd/ckpts/roberta-large/1/mp_rank_00_model_states.pt
         vocab_size: 50265
         hidden_size: 16
         sample_length: 64
     cond_stage_config: __is_unconditional__
+
+tokenizer_type: 'roberta-large'
 
 data:
   target: main.DataModuleFromConfig

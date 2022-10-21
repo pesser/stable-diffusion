@@ -18,8 +18,7 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 from pytorch_lightning.utilities import rank_zero_info
 
 from ldm.data.base import Txt2ImgIterableBaseDataset
-from ldm.util import instantiate_from_config
-
+from ldm.util import instantiate_from_config, get_tokenizer
 
 MULTINODE_HACKS = True
 
@@ -732,6 +731,10 @@ if __name__ == "__main__":
 
         # model
         model = instantiate_from_config(config.model)
+        
+        # tokenizer
+        tokenizer_type = config.get('tokenizer_type', 'roberta-large')
+        get_tokenizer(tokenizer_type)
 
         # trainer and callbacks
         trainer_kwargs = dict()

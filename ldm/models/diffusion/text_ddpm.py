@@ -13,7 +13,7 @@ from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from omegaconf import ListConfig
 
-from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config
+from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, get_tokenizer, tokenize, detokenize
 from ldm.modules.ema import LitEma
 from ldm.modules.distributions.distributions import normal_kl, DiagonalGaussianDistribution
 from ldm.models.autoencoder import VQModelInterface, IdentityFirstStage, AutoencoderKL
@@ -621,19 +621,21 @@ class TextDiffusion(DDPM):
     @torch.no_grad()
     def decode_first_stage(self, z, do_detokenize=False):
         z = 1. / self.scale_factor * z
-        return self.first_stage_model.decode(z, do_detokenize=do_detokenize)
+        ids = self.first_stage_model.decode(z)
+        if do_detokenize:
+            txts = []
+            for item in ids:
+                txts.append(detokenize(item))
+            return txts
+        else:
+            return ids
 
     @torch.no_grad()
     def encode_first_stage(self, x, do_tokenize=False):
-        return self.first_stage_model.encode(x, do_tokenize=do_tokenize)
-    
-    @torch.no_grad()
-    def detokenize_first_stage(self, x):
-        return self.first_stage_model.detokenize(x)
-
-    @torch.no_grad()
-    def tokenize_first_stage(self, x):
-        return self.first_stage_model.tokenize(x)
+        if do_tokenize:
+            x = tokenize(x)
+        x = self.first_stage_model.encode(x)
+        return x
     
     def shared_step(self, batch, **kwargs):
         x, c, ids = self.get_input(batch, self.first_stage_key, return_x=True)
@@ -960,8 +962,8 @@ class TextDiffusion(DDPM):
         
         inputs, reconstruction = [], []
         for ids, rec_ids in zip(x, xrec):
-            inputs.append(self.detokenize_first_stage(ids))
-            reconstruction.append(self.detokenize_first_stage(rec_ids))
+            inputs.append(detokenize(ids))
+            reconstruction.append(detokenize(rec_ids))
         log["inputs"] = inputs
         log["reconstruction"] = reconstruction
         

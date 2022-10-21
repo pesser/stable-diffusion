@@ -195,3 +195,46 @@ class AdamWwithEMAandWings(optim.Optimizer):
                 ema_param.mul_(cur_ema_decay).add_(param.float(), alpha=1 - cur_ema_decay)
 
         return loss
+
+def get_tokenizer(tokenizer_type=None, outer_tokenizer=None):
+    '''
+        If you're using outer_tokenizer, call `get_tokenizer(args, outer_tokenizer)`
+    '''
+    if outer_tokenizer is not None: # set 1
+        get_tokenizer.tokenizer = outer_tokenizer
+        get_tokenizer.tokenizer_type = 'outer_tokenizer'
+        print('> Set tokenizer as an outer_tokenizer! Now you can get_tokenizer() everywhere.')
+        return outer_tokenizer
+    if tokenizer_type is None:
+        assert hasattr(get_tokenizer, 'tokenizer'), 'Never set tokenizer.'
+        return get_tokenizer.tokenizer
+        
+    # find the tokenizer via tokenizer_type!
+    if hasattr(get_tokenizer, 'tokenizer_type') and \
+        tokenizer_type == get_tokenizer.tokenizer_type:  # the same as last
+        return get_tokenizer.tokenizer
+    
+    get_tokenizer.tokenizer_type = tokenizer_type
+    
+    if tokenizer_type == 'icetk':
+        from icetk import icetk
+        get_tokenizer.tokenizer = icetk
+    else:
+        print('Try to load tokenizer from Huggingface transformers...')
+        from transformers import AutoTokenizer
+        try:
+            get_tokenizer.tokenizer = AutoTokenizer.from_pretrained(tokenizer_type, local_files_only=True)
+        except OSError as e:
+            print(f'Cannot find {tokenizer_type} from Huggingface or SwissArmyTransformer. Creating a fake tokenizer...')
+            return None
+    print(f'> Set tokenizer as a {tokenizer_type} tokenizer! Now you can get_tokenizer() everywhere.')
+    return get_tokenizer.tokenizer
+
+def tokenize(x, sample_length):
+    tokenizer = get_tokenizer()
+    encoded_input = tokenizer(x, max_length=sample_length, padding='max_length', truncation='only_first')
+    return encoded_input['input_ids']
+    
+def detokenize(ids):
+    tokenizer = get_tokenizer()
+    return tokenizer.decode(ids)
