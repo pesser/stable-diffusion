@@ -16,7 +16,7 @@ from ldm.modules.diffusionmodules.util import (
     checkpoint,
     conv_nd,
     linear,
-    avg_pool_nd，
+    avg_pool_nd,
     zero_module,
     timestep_embedding,
 )
@@ -879,6 +879,7 @@ class TransformerNetModel2(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
         # print(f'real model inputs: {timesteps}')
+        x = x.permute(0, 2, 1)
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
@@ -917,7 +918,7 @@ class TransformerNetModel2(nn.Module):
             input_trans_hidden_states = self.input_transformers(emb_inputs).last_hidden_state
         h = self.output_down_proj(input_trans_hidden_states)
         h = h.type(x.dtype)
-        return h
+        return h.permute(0, 2, 1)
 
     def get_feature_vectors(self, x, timesteps, y=None):
         """

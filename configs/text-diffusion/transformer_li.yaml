@@ -31,7 +31,7 @@ model: # add base config
         f_min: [ 1. ]
 
     unet_config:
-      target: ldm.modules.diffusionmodules.transformer_li.TransUNetModel
+      target: ldm.modules.diffusionmodules.transformer_li2.TransformerNetModel2
       params:
         in_channels: 1024
         model_channels: 128
