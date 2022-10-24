@@ -29,11 +29,19 @@ class TextEmbedder(nn.Module):
     
     def decode(self, x, **kwargs): # x: b c l
         with torch.no_grad():
-            x, word_embeddings_weight = x.detach().cpu(), self.word_embeddings.weight.detach().cpu()
-            x = x[..., None].permute(0, 2, 3, 1) # bxlx1xc
-            logits = (x - word_embeddings_weight).pow(2).mean(dim=-1)
-            x = logits.argmin(dim=-1)
-        return x
+            x, word_embedding_weight = x.permute(0, 2, 1).detach(), self.word_embeddings.weight.detach()
+            x_square, word_embedding_weight_square = x.pow(2).mean(dim=-1), word_embedding_weight.pow(2).mean(dim=-1)
+            x_mult_word_embedding_weight = x @ word_embedding_weight.permute(1, 0) / self.hidden_size
+            logits = x_square.unsqueeze(-1) - 2 * x_mult_word_embedding_weight + word_embedding_weight_square
+            
+            # x, word_embeddings_weight = x.detach().cpu(), self.word_embeddings.weight.detach().cpu()
+            # x = x[..., None].permute(0, 2, 3, 1) # bxlx1xc
+            # logits_2 = (x - word_embeddings_weight).pow(2).mean(dim=-1)
+        return logits.argmin(dim=-1)
+
+    def forward(self, x):
+        x = x.to(self.device)
+        return self.encode(x)
 
 class TextEmbedderLMHead(TextEmbedder):
     def __init__(self, vocab_size, hidden_size, sample_length, embedding_ckpt_path=None, embedding_init_std=0.02, **kwargs):
