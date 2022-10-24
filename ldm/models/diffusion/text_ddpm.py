@@ -960,12 +960,8 @@ class TextDiffusion(DDPM):
                                            bs=N)
         N = min(x.shape[0], N)
         
-        inputs, reconstruction = [], []
-        for ids, rec_ids in zip(x, xrec):
-            inputs.append(detokenize(ids))
-            reconstruction.append(detokenize(rec_ids))
-        log["inputs"] = inputs
-        log["reconstruction"] = reconstruction
+        log["inputs"] = [detokenize(ids) for ids in x]
+        log["reconstruction"] = [detokenize(ids) for ids in xrec]
         
         if self.model.conditioning_key is not None:
             # only for txt now
@@ -975,6 +971,8 @@ class TextDiffusion(DDPM):
             elif self.cond_stage_key == 'class_label':
                 xc = batch['human_label']
                 log['conditioning'] = [str(i) for i in xc]
+            elif self.cond_stage_key == 'cond_input_ids':
+                log['conditioning'] = [detokenize(ids) for ids in xc]
         
         # if plot_diffusion_rows:
         #     diffusion_row = list()
