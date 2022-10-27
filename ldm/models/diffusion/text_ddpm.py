@@ -13,7 +13,7 @@ from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from omegaconf import ListConfig
 
-from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, get_tokenizer, tokenize, detokenize
+from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, get_tokenizer, tokenize, detokenize, clean_detokenize
 from ldm.modules.ema import LitEma
 from ldm.modules.distributions.distributions import normal_kl, DiagonalGaussianDistribution
 from ldm.models.autoencoder import VQModelInterface, IdentityFirstStage, AutoencoderKL
@@ -258,14 +258,14 @@ class DDPM(pl.LightningModule):
 
     def predict_start_from_noise(self, x_t, t, noise):
         return (
-                extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t -
-                extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
+            extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t -
+            extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
         )
 
     def q_posterior(self, x_start, x_t, t):
         posterior_mean = (
-                extract_into_tensor(self.posterior_mean_coef1, t, x_t.shape) * x_start +
-                extract_into_tensor(self.posterior_mean_coef2, t, x_t.shape) * x_t
+            extract_into_tensor(self.posterior_mean_coef1, t, x_t.shape) * x_start +
+            extract_into_tensor(self.posterior_mean_coef2, t, x_t.shape) * x_t
         )
         posterior_variance = extract_into_tensor(self.posterior_variance, t, x_t.shape)
         posterior_log_variance_clipped = extract_into_tensor(self.posterior_log_variance_clipped, t, x_t.shape)
@@ -441,6 +441,9 @@ class TextDiffusion(DDPM):
                  first_stage_trainable=False,
                  scale_factor=1.0,
                  scale_by_std=False,
+                 uncond_training_ratio=0.,
+                 unconditional_guidance_scale=1.,
+                 null_label="",
                  *args, **kwargs):
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
         self.scale_by_std = scale_by_std
@@ -469,7 +472,9 @@ class TextDiffusion(DDPM):
         self.instantiate_cond_stage(cond_stage_config)
         self.cond_stage_forward = cond_stage_forward
         self.clip_denoised = False
-        self.bbox_tokenizer = None  
+        self.uncond_training_ratio = uncond_training_ratio
+        self.unconditional_guidance_scale = unconditional_guidance_scale
+        self.null_label = torch.tensor(tokenize(null_label, self.text_length))
 
         self.restarted_from_ckpt = False
         if ckpt_path is not None:
@@ -567,7 +572,7 @@ class TextDiffusion(DDPM):
     
     @torch.no_grad()
     def get_input(self, batch, k, return_first_stage_outputs=False, force_c_encode=False,
-                  cond_key=None, return_original_cond=False, bs=None, return_x=False):
+                  cond_key=None, return_original_cond=False, bs=None, return_x=False, sampling_uncond=False):
         x = super().get_input(batch, k)
         if bs is not None:
             x = x[:bs]
@@ -587,6 +592,22 @@ class TextDiffusion(DDPM):
                     xc = super().get_input(batch, cond_key).to(self.device)
             else:
                 xc = x
+            
+            if sampling_uncond and self.uncond_training_ratio > 0.:
+                uncond_idx = (np.random.rand(x.shape[0]) > self.uncond_training_ratio).tolist()
+                null_label = self.null_label.to(self.device)
+                if isinstance(xc, dict):
+                    assert isinstance(null_label, dict)
+                    for k in xc:
+                        assert k in null_label
+                        xc[k][uncond_idx] = null_label[k]
+                elif isinstance(xc, list):
+                    assert isinstance(null_label, list) and len(null_label) == len(xc)
+                    for i in range(len(xc)):
+                        xc[i][uncond_idx] = null_label[i]
+                else: # tensor
+                    xc[uncond_idx] = null_label
+                
             if not self.cond_stage_trainable or force_c_encode:
                 if isinstance(xc, dict) or isinstance(xc, list):
                     c = self.get_learned_conditioning(xc)
@@ -619,13 +640,17 @@ class TextDiffusion(DDPM):
         return out
 
     @torch.no_grad()
-    def decode_first_stage(self, z, do_detokenize=False):
+    def decode_first_stage(self, z, do_detokenize=False, do_clean_detokenize=False):
         z = 1. / self.scale_factor * z
         ids = self.first_stage_model.decode(z)
         if do_detokenize:
+            if do_clean_detokenize:
+                detokenize_func = clean_detokenize
+            else:
+                detokenize_func = detokenize
             txts = []
             for item in ids:
-                txts.append(detokenize(item))
+                txts.append(detokenize_func(item))
             return txts
         else:
             return ids
@@ -633,12 +658,12 @@ class TextDiffusion(DDPM):
     @torch.no_grad()
     def encode_first_stage(self, x, do_tokenize=False):
         if do_tokenize:
-            x = tokenize(x)
+            x = torch.tensor(tokenize(x, self.text_length), device=self.device)
         x = self.first_stage_model.encode(x)
         return x
     
     def shared_step(self, batch, **kwargs):
-        x, c, ids = self.get_input(batch, self.first_stage_key, return_x=True)
+        x, c, ids = self.get_input(batch, self.first_stage_key, return_x=True, sampling_uncond=True)
         loss = self(x, ids, c)
         return loss
     
@@ -729,9 +754,30 @@ class TextDiffusion(DDPM):
         return loss, loss_dict
     
     def p_mean_variance(self, x, c, t, clip_denoised: bool, return_codebook_ids=False,
-                        return_x0=False, score_corrector=None, corrector_kwargs=None):
-        t_in = t
-        model_out = self.apply_model(x, t_in, c, return_ids=return_codebook_ids)
+                        return_x0=False, score_corrector=None, corrector_kwargs=None,
+                        unconditional_guidance_scale=1., unconditional_conditioning=None):
+        if unconditional_conditioning is None or unconditional_guidance_scale == 1.:
+            t_in = t
+            model_out = self.apply_model(x, t_in, c, return_ids=return_codebook_ids)
+        else:
+            x_in = torch.cat([x] * 2)
+            t_in = torch.cat([t] * 2)
+            if isinstance(c, dict):
+                assert isinstance(unconditional_conditioning, dict)
+                c_in = dict()
+                for k in c:
+                    if isinstance(c[k], list):
+                        c_in[k] = [torch.cat([
+                            unconditional_conditioning[k][i],
+                            c[k][i]]) for i in range(len(c[k]))]
+                    else:
+                        c_in[k] = torch.cat([
+                                unconditional_conditioning[k],
+                                c[k]])
+            else:
+                c_in = torch.cat([unconditional_conditioning, c])
+            model_out_uncond, model_out = self.apply_model(x_in, t_in, c_in).chunk(2)
+            model_out = model_out_uncond + unconditional_guidance_scale * (model_out - model_out_uncond)
         
         if score_corrector is not None:
             assert self.parameterization == "eps"
@@ -758,12 +804,15 @@ class TextDiffusion(DDPM):
     @torch.no_grad()
     def p_sample(self, x, c, t, clip_denoised=False, repeat_noise=False,
                  return_codebook_ids=False, return_x0=False,
-                 temperature=1., noise_dropout=0., score_corrector=None, corrector_kwargs=None):
+                 temperature=1., noise_dropout=0., score_corrector=None, corrector_kwargs=None,
+                 unconditional_guidance_scale=1., unconditional_conditioning=None):
         b, *_, device = *x.shape, x.device
         outputs = self.p_mean_variance(x=x, c=c, t=t, clip_denoised=clip_denoised,
                                        return_codebook_ids=return_codebook_ids,
                                        return_x0=return_x0,
-                                       score_corrector=score_corrector, corrector_kwargs=corrector_kwargs)
+                                       score_corrector=score_corrector, corrector_kwargs=corrector_kwargs,
+                                       unconditional_guidance_scale=unconditional_guidance_scale,
+                                       unconditional_conditioning=unconditional_conditioning)
         if return_codebook_ids:
             raise DeprecationWarning("Support dropped.")
             model_mean, _, model_log_variance, logits = outputs
@@ -843,8 +892,8 @@ class TextDiffusion(DDPM):
     @torch.no_grad()
     def p_sample_loop(self, cond, shape, return_intermediates=False,
                       x_T=None, verbose=True, callback=None, timesteps=None,
-                      mask=None, x0=None, txt_callback=None, start_T=None,
-                      log_every_t=None):
+                      mask=None, x0=None, txt_callback=None, start_T=None, log_every_t=None,
+                      unconditional_guidance_scale=1., unconditional_conditioning=None):
 
         if not log_every_t:
             log_every_t = self.log_every_t
@@ -876,7 +925,9 @@ class TextDiffusion(DDPM):
                 cond = self.q_sample(x_start=cond, t=tc, noise=torch.randn_like(cond))
             
             txt = self.p_sample(txt, cond, ts,
-                                clip_denoised=self.clip_denoised)
+                                clip_denoised=self.clip_denoised,
+                                unconditional_guidance_scale=unconditional_guidance_scale,
+                                unconditional_conditioning=unconditional_conditioning)
             if mask is not None:
                 txt_orig = self.q_sample(x0, ts)
                 txt = txt_orig * mask + (1. - mask) * txt
@@ -893,7 +944,8 @@ class TextDiffusion(DDPM):
     @torch.no_grad()
     def sample(self, cond, batch_size=16, return_intermediates=False, x_T=None,
                verbose=True, timesteps=None,
-               mask=None, x0=None, shape=None,**kwargs):
+               mask=None, x0=None, shape=None,
+               unconditional_guidance_scale=1., unconditional_conditioning=None, **kwargs):
         if shape is None:
             shape = (batch_size, self.channels, self.text_length)
         if cond is not None:
@@ -906,7 +958,9 @@ class TextDiffusion(DDPM):
                                   shape,
                                   return_intermediates=return_intermediates, x_T=x_T,
                                   verbose=verbose, timesteps=timesteps,
-                                  mask=mask, x0=x0)
+                                  mask=mask, x0=x0,
+                                  unconditional_guidance_scale=unconditional_guidance_scale,
+                                  unconditional_conditioning=unconditional_conditioning)
     
     @torch.no_grad()
     def sample_log(self, cond, batch_size, ddim, ddim_steps, **kwargs):
@@ -927,6 +981,8 @@ class TextDiffusion(DDPM):
     
     @torch.no_grad()
     def get_unconditional_conditioning(self, batch_size, null_label=None):
+        if null_label is None:
+            null_label = self.null_label
         if null_label is not None:
             xc = null_label
             if isinstance(xc, ListConfig):
@@ -940,7 +996,7 @@ class TextDiffusion(DDPM):
         else:
             # todo: get null label from cond_stage_model
             raise NotImplementedError()
-        c = repeat(c, '1 ... -> b ...', b=batch_size).to(self.device)
+        c = repeat(c.unsqueeze(0), '1 ... -> b ...', b=batch_size).to(self.device)
         return c
     
     @torch.no_grad()
@@ -999,9 +1055,21 @@ class TextDiffusion(DDPM):
                 denoise_row = self._get_denoise_row_from_list(z_denoise_row)
                 log["denoise_row"] = denoise_row
         
-        if unconditional_guidance_scale > 1.0:
+        if isinstance(unconditional_guidance_scale, ListConfig):
+            unconditional_guidance_scale = list(unconditional_guidance_scale)
             uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
-            with ema_scope("Sampling with classifier-free guidance"):
+            for scale in unconditional_guidance_scale:
+                with ema_scope(f"Sampling with classifier-free guidance {scale}"):
+                    samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
+                                                    ddim_steps=ddim_steps, eta=ddim_eta,
+                                                    unconditional_guidance_scale=scale,
+                                                    unconditional_conditioning=uc,
+                                                    )
+                    x_samples_cfg = self.decode_first_stage(samples_cfg, do_detokenize=True)
+                    log[f"samples_cfg_scale_{scale:.2f}"] = x_samples_cfg
+        elif unconditional_guidance_scale > 1.0:
+            uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
+            with ema_scope(f"Sampling with classifier-free guidance {unconditional_guidance_scale}"):
                 samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
                                                 ddim_steps=ddim_steps, eta=ddim_eta,
                                                 unconditional_guidance_scale=unconditional_guidance_scale,
@@ -1024,6 +1092,54 @@ class TextDiffusion(DDPM):
             else:
                 return {key: log[key] for key in return_keys}
         return log
+    
+    @torch.no_grad()
+    def test_step(self, batch, batch_idx):
+        ema_scope = self.ema_scope
+        x, c, ids = self.get_input(batch, self.first_stage_key, return_x=True)
+        
+        N = x.shape[0]
+        
+        with open("inputs", 'a') as f:
+            for sample in ids:
+                f.write(clean_detokenize(sample)+'\n')
+        with open("conditions", 'a') as f:
+            for sample in self.decode_first_stage(c, do_detokenize=True, do_clean_detokenize=True):
+                f.write(sample+'\n')
+        
+        with ema_scope("Sampling"):
+            samples, z_denoise_row = self.sample_log(cond=c, batch_size=N, ddim=False, ddim_steps=None)
+            x_samples = self.decode_first_stage(samples, do_detokenize=True, do_clean_detokenize=True)
+            with open("samples", 'a') as f:
+                for sample in x_samples:
+                    f.write(sample+'\n')
+        
+        unconditional_guidance_scale = self.unconditional_guidance_scale
+        unconditional_guidance_label = self.null_label.to(self.device)
+        if isinstance(unconditional_guidance_scale, ListConfig):
+            unconditional_guidance_scale = list(unconditional_guidance_scale)
+            uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
+            for scale in unconditional_guidance_scale:
+                with ema_scope(f"Sampling with classifier-free guidance {scale}"):
+                    samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=False, ddim_steps=None,
+                                                    unconditional_guidance_scale=scale,
+                                                    unconditional_conditioning=uc,
+                                                    )
+                    x_samples_cfg = self.decode_first_stage(samples_cfg, do_detokenize=True, do_clean_detokenize=True)
+                    with open(f"samples_cfg_scale_{scale}", 'a') as f:
+                        for sample in x_samples_cfg:
+                            f.write(sample+'\n')
+        elif unconditional_guidance_scale > 1.0:
+            uc = self.get_unconditional_conditioning(N, unconditional_guidance_label)
+            with ema_scope(f"Sampling with classifier-free guidance {unconditional_guidance_scale}"):
+                samples_cfg, _ = self.sample_log(cond=c, batch_size=N, ddim=False, ddim_steps=None,
+                                                unconditional_guidance_scale=unconditional_guidance_scale,
+                                                unconditional_conditioning=uc,
+                                                )
+                x_samples_cfg = self.decode_first_stage(samples_cfg, do_detokenize=True, do_clean_detokenize=True)
+                with open(f"samples_cfg_scale_{unconditional_guidance_scale}", 'a') as f:
+                    for sample in x_samples_cfg:
+                        f.write(sample+'\n')
     
     def configure_optimizers(self):
         lr = self.learning_rate

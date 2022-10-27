@@ -24,8 +24,8 @@ class TextEmbedder(nn.Module):
         else:
             self.word_embeddings = nn.Embedding(vocab_size, hidden_size)
     
-    def encode(self, x, **kwargs):            
-        return self.word_embeddings(x).permute(0, 2, 1)
+    def encode(self, x, **kwargs):
+        return self.word_embeddings(x).transpose(-1, -2)
     
     def decode(self, x, **kwargs): # x: b c l
         with torch.no_grad():
@@ -45,7 +45,7 @@ class TextEmbedder(nn.Module):
 
 class TextEmbedderLMHead(TextEmbedder):
     def __init__(self, vocab_size, hidden_size, sample_length, embedding_ckpt_path=None, embedding_init_std=0.02, **kwargs):
-        super().__init__(vocab_size, hidden_size, sample_length, embedding_ckpt_path, embedding_init_std, tokenizer_path, **kwargs)
+        super().__init__(vocab_size, hidden_size, sample_length, embedding_ckpt_path, embedding_init_std, **kwargs)
         self.lm_head = nn.Linear(hidden_size, vocab_size)
         
     def decode(self, x, do_detokenize=False, **kwargs): # x: b c l

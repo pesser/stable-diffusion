@@ -729,12 +729,12 @@ if __name__ == "__main__":
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
 
-        # model
-        model = instantiate_from_config(config.model)
-        
         # tokenizer
         tokenizer_type = config.get('tokenizer_type', 'roberta-large')
         get_tokenizer(tokenizer_type)
+
+        # model
+        model = instantiate_from_config(config.model)
 
         # trainer and callbacks
         trainer_kwargs = dict()
