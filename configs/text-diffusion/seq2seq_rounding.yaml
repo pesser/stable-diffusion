@@ -1,6 +1,6 @@
 model: # add base config
   base_learning_rate: 1.0e-04
-  target: ldm.models.diffusion.text_ddpm.TextDiffusion
+  target: ldm.models.diffusion.text_ddpm.TextDiffusionRounding
   params:
     linear_start: 0.00085
     linear_end: 0.0120
@@ -17,12 +17,12 @@ model: # add base config
     monitor: val/loss_simple_ema
     scale_factor: 1
     uncond_training_ratio: 0.1
-    # unconditional_guidance_scale: [1.1, 1.5, 2, 5, 10, 50, 100]
-    ckpt_path: logs/2022-10-25T16-03-58_seq2seq/checkpoints/last.ckpt
+    ckpt_path: logs/2022-10-25T13-07-49_seq2seq_rounding/checkpoints/last.ckpt
     use_ema: False
     parameterization: x0
     l_simple_weight: 1.
     original_elbo_weight: 1.
+    nll_weight: 0.001
 
     scheduler_config: # 10000 warmup steps
       target: ldm.lr_scheduler.LambdaLinearScheduler
@@ -46,7 +46,7 @@ model: # add base config
         output_projection: True
 
     first_stage_config:
-      target: ldm.models.text_embedder.TextEmbedder
+      target: ldm.models.text_embedder.TextEmbedderLMHead
       params:
         embedding_ckpt_path: /zhangpai21/workspace/zwd/ckpts/roberta-base/1/mp_rank_00_model_states.pt
         vocab_size: 50265

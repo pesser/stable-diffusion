@@ -238,3 +238,16 @@ def tokenize(x, sample_length):
 def detokenize(ids):
     tokenizer = get_tokenizer()
     return tokenizer.decode(ids)
+
+def clean_detokenize(ids, start_id=0, end_id=2):
+    ids = ids.tolist()
+    tokenizer = get_tokenizer()
+    try:
+        start_idx = ids.index(0) + 1
+    except:
+        start_idx = 0
+    try:
+        end_idx = ids.index(2)
+        return tokenizer.decode(ids[start_idx:end_idx])
+    except:
+        return tokenizer.decode(ids[start_idx:])

@@ -954,16 +954,16 @@ class TransformerNetModel2(nn.Module):
         return result
 
 
-def instantiate_model(config_name, config, init_pretrained=False):
+def instantiate_model(config_name, config, init_pretrained=False, local_files_only=True):
     if init_pretrained:
         if config_name.startswith('bert'):
             from transformers.models.bert.modeling_bert import BertModel
-            temp_bert = BertModel.from_pretrained(config_name, config=config)
+            temp_bert = BertModel.from_pretrained(config_name, config=config, local_files_only=local_files_only)
             print('initializing from pretrained bert.')
             return temp_bert.encoder
         elif config_name.startswith('roberta'):
             from transformers.models.roberta.modeling_roberta import RobertaModel
-            temp_roberta = RobertaModel.from_pretrained(config_name, config=config)
+            temp_roberta = RobertaModel.from_pretrained(config_name, config=config, local_files_only=local_files_only)
             print('initializing from pretrained roberta.')
             return temp_roberta.encoder
         else:
@@ -1005,7 +1005,7 @@ class TransformerModel(nn.Module):
         super().__init__()
         
         if config is None:
-            config = AutoConfig.from_pretrained(config_name)
+            config = AutoConfig.from_pretrained(config_name, local_files_only=True)
             config.hidden_dropout_prob = dropout
 
         self.in_channels = in_channels
@@ -1022,7 +1022,7 @@ class TransformerModel(nn.Module):
             
             assert cond_config_name is not None or cond_config is not None
             if cond_config is None:
-                cond_config = AutoConfig.from_pretrained(cond_config_name)
+                cond_config = AutoConfig.from_pretrained(cond_config_name, local_files_only=True)
                 config.hidden_dropout_prob = dropout
             
             self.encoder = instantiate_model(cond_config_name, cond_config, cond_init_pretrained)
@@ -1083,6 +1083,10 @@ class TransformerModel(nn.Module):
         emb_inputs = self.dropout(self.LayerNorm(emb_inputs))
         
         if context is not None and self.cond == "cross":
+            context_length = context.shape[1]
+            context_position_ids = self.position_ids[:, :context_length]
+            context = self.position_embeddings(context_position_ids) + context
+            context = self.encoder(context).last_hidden_state
             h = self.input_transformers(emb_inputs, encoder_hidden_states=context).last_hidden_state
         else:
             h = self.input_transformers(emb_inputs).last_hidden_state
