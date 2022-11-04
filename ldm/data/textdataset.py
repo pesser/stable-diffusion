@@ -30,7 +30,7 @@ class E2EDataset(Dataset):
         
 class QQPDataset(Dataset):
     def __init__(self,
-                 path, sample_length, cond_length):
+                 path, sample_length, cond_length, num_shards=1, shard_id=0):
         super().__init__()
         self.sample_length = sample_length
         self.cond_length = cond_length
@@ -54,21 +54,27 @@ class QQPDataset(Dataset):
                         data.append((items[3], items[4]))
                     except:
                         continue
+
+        length_shard = len(data) // num_shards
+        if shard_id == num_shards - 1:
+            self.data = data[shard_id*length_shard:]
+        else:
+            self.data = data[shard_id*length_shard:(shard_id+1)*length_shard]
     
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
         item = self.data[idx]
-        
-        data = {}
-        data['cond_input_ids'] = np.array(tokenize(item[0], self.sample_length), dtype=np.int64)
-        data['input_ids'] = np.array(tokenize(item[1], self.cond_length), dtype=np.int64)
+        data = {
+            "cond_input_ids": np.array(tokenize(item[0], self.sample_length), dtype=np.int64),
+            "input_ids": np.array(tokenize(item[1], self.cond_length), dtype=np.int64)
+        }
         return data
         
 class QuasarTDataset(Dataset):
     def __init__(self,
-                 path, sample_length, cond_length):
+                 path, sample_length, cond_length, num_shards=1, shard_id=0):
         super().__init__()
         self.sample_length = sample_length
         self.cond_length = cond_length
@@ -78,7 +84,6 @@ class QuasarTDataset(Dataset):
         with open(answer_path, 'r') as answer_f:
             for line in answer_f:
                 answers.append(json.loads(line)["answers"][0])
-        
         
         data = []
         with open(path, 'r') as f:
@@ -90,16 +95,53 @@ class QuasarTDataset(Dataset):
                         continue
                     question = ' '.join(dic["question"])
                     data.append((document, question))
-        self.data = data
+        
+        length_shard = len(data) // num_shards
+        if shard_id == num_shards - 1:
+            self.data = data[shard_id*length_shard:]
+        else:
+            self.data = data[shard_id*length_shard:(shard_id+1)*length_shard]
     
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
         item = self.data[idx]
+        data = {
+            "cond_input_ids": np.array(tokenize(item[0], self.sample_length), dtype=np.int64),
+            "input_ids": np.array(tokenize(item[1], self.cond_length), dtype=np.int64)
+        }
+        return data
         
-        data = {}
-        data['cond_input_ids'] = np.array(tokenize(item[0], self.sample_length), dtype=np.int64)
-        data['input_ids'] = np.array(tokenize(item[1], self.cond_length), dtype=np.int64)
+class CCDataset(Dataset):
+    def __init__(self, 
+                 path, sample_length, cond_length, num_shards=1, shard_id=0):
+        super().__init__()
+        self.sample_length = sample_length
+        self.cond_length = cond_length
+        
+        data = []
+        with open(path, 'r') as f:
+            for line in f:
+                item = json.loads(line)
+                post = ' '.join(item["post"])
+                response = ' '.join(item["response"])
+                data.append((post, response))
+        
+        length_shard = len(data) // num_shards
+        if shard_id == num_shards - 1:
+            self.data = data[shard_id*length_shard:]
+        else:
+            self.data = data[shard_id*length_shard:(shard_id+1)*length_shard]
+        
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        item = self.data[idx]
+        data = {
+            "cond_input_ids": np.array(tokenize(item[0], self.sample_length), dtype=np.int64),
+            "input_ids": np.array(tokenize(item[1], self.cond_length), dtype=np.int64)
+        }
         return data
         

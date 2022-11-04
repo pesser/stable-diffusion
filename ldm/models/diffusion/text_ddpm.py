@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from omegaconf import ListConfig
+from datetime import datetime
 
 from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, get_tokenizer, tokenize, detokenize, clean_detokenize
 from ldm.modules.ema import LitEma
@@ -480,6 +482,8 @@ class TextDiffusion(DDPM):
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys)
             self.restarted_from_ckpt = True
+        
+        self.init_time = datetime.now().strftime('%y%m%d-%H%M%S')
     
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
@@ -594,7 +598,7 @@ class TextDiffusion(DDPM):
                 xc = x
             
             if sampling_uncond and self.uncond_training_ratio > 0.:
-                uncond_idx = (np.random.rand(x.shape[0]) > self.uncond_training_ratio).tolist()
+                uncond_idx = (np.random.rand(x.shape[0]) < self.uncond_training_ratio).tolist()
                 null_label = self.null_label.to(self.device)
                 if isinstance(xc, dict):
                     assert isinstance(null_label, dict)
@@ -1100,17 +1104,19 @@ class TextDiffusion(DDPM):
         
         N = x.shape[0]
         
-        with open("inputs", 'a') as f:
+        os.makedirs(self.init_time, exist_ok=True)
+        
+        with open(os.path.join(self.init_time, "inputs"), 'a') as f:
             for sample in ids:
                 f.write(clean_detokenize(sample)+'\n')
-        with open("conditions", 'a') as f:
+        with open(os.path.join(self.init_time, "conditions"), 'a') as f:
             for sample in self.decode_first_stage(c, do_detokenize=True, do_clean_detokenize=True):
                 f.write(sample+'\n')
         
         with ema_scope("Sampling"):
             samples, z_denoise_row = self.sample_log(cond=c, batch_size=N, ddim=False, ddim_steps=None)
             x_samples = self.decode_first_stage(samples, do_detokenize=True, do_clean_detokenize=True)
-            with open("samples", 'a') as f:
+            with open(os.path.join(self.init_time, "samples"), 'a') as f:
                 for sample in x_samples:
                     f.write(sample+'\n')
         
@@ -1126,7 +1132,7 @@ class TextDiffusion(DDPM):
                                                     unconditional_conditioning=uc,
                                                     )
                     x_samples_cfg = self.decode_first_stage(samples_cfg, do_detokenize=True, do_clean_detokenize=True)
-                    with open(f"samples_cfg_scale_{scale}", 'a') as f:
+                    with open(os.path.join(self.init_time, f"samples_cfg_scale_{scale}"), 'a') as f:
                         for sample in x_samples_cfg:
                             f.write(sample+'\n')
         elif unconditional_guidance_scale > 1.0:
@@ -1137,7 +1143,7 @@ class TextDiffusion(DDPM):
                                                 unconditional_conditioning=uc,
                                                 )
                 x_samples_cfg = self.decode_first_stage(samples_cfg, do_detokenize=True, do_clean_detokenize=True)
-                with open(f"samples_cfg_scale_{unconditional_guidance_scale}", 'a') as f:
+                with open(os.path.join(self.init_time, f"samples_cfg_scale_{unconditional_guidance_scale}"), 'a') as f:
                     for sample in x_samples_cfg:
                         f.write(sample+'\n')
     
@@ -1269,8 +1275,9 @@ class DiffusionWrapper(pl.LightningModule):
         if self.conditioning_key is None:
             out = self.diffusion_model(x, t)
         elif self.conditioning_key == 'concat':
-            xc = torch.cat([x] + c_concat, dim=1)
+            xc = torch.cat([x] + c_concat, dim=2)
             out = self.diffusion_model(xc, t)
+            out = out[:, :, :x.shape[2]]
         elif self.conditioning_key == 'crossattn':
             cc = torch.cat(c_crossattn, 1)
             out = self.diffusion_model(x, t, context=cc)
