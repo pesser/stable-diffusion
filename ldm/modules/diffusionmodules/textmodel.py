@@ -1028,7 +1028,7 @@ class TransformerModel(nn.Module):
             self.encoder = instantiate_model(cond_config_name, cond_config, cond_init_pretrained)
         elif cond == 'concat':
             pass
-        else:
+        elif cond is not None:
             raise NotImplementedError
         
         time_embed_dim = model_channels * 4

@@ -54,6 +54,7 @@ class QQPDataset(Dataset):
                         data.append((items[3], items[4]))
                     except:
                         continue
+        self.data = data
     
     def __len__(self):
         return len(self.data)
