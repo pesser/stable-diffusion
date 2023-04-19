@@ -1,27 +1,30 @@
 name: ldm
 channels:
   - pytorch
+  - nvidia
   - defaults
 dependencies:
-  - python=3.8.5
-  - pip=20.3
-  - cudatoolkit=11.0
-  - pytorch=1.7.0
-  - torchvision=0.8.1
-  - numpy=1.19.2
+  - python=3.10.9
+  - pytorch=2.0.0
+  - pytorch-cuda=11.8
+  - torchvision
+  - tensorboard
+  - lightning=2.0.1
+  - pytorch-lightning=2.0.1
+  - numpy=1.23.5
+  - pip
   - pip:
+    - 'jsonargparse[signatures]==4.20.1'
     - albumentations==0.4.3
-    - opencv-python==4.1.2.30
+    - opencv-python==4.5.4.58
     - pudb==2019.2
     - imageio==2.9.0
     - imageio-ffmpeg==0.4.2
-    - pytorch-lightning==1.4.2
     - omegaconf==2.1.1
-    - test-tube>=0.7.5
     - streamlit>=0.73.1
     - einops==0.3.0
     - torch-fidelity==0.3.0
-    - transformers==4.3.1
+    - transformers==4.6
     - webdataset==0.2.5
     - kornia==0.6
     - -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers

@@ -14,15 +14,13 @@ from PIL import Image
 from pytorch_lightning import seed_everything
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
-from pytorch_lightning.utilities.distributed import rank_zero_only
-from pytorch_lightning.utilities import rank_zero_info
+from pytorch_lightning.utilities.rank_zero import rank_zero_only, rank_zero_info
+from pytorch_lightning.cli import LightningArgumentParser
 
 from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
 
-
-MULTINODE_HACKS = True
-
+MULTINODE_AWS_SLURM_HACKS = False
 
 def get_parser(**parser_kwargs):
     def str2bool(v):
@@ -123,15 +121,33 @@ def get_parser(**parser_kwargs):
         default=True,
         help="scale base-lr by ngpu * batch_size * n_accumulate",
     )
+
     return parser
+
+# Trainer.add_argparse_args(parser) is not supported past v 1.4 of lightning.
+# Rather than rewriting this entire main.py to use their new command line
+# api, this function is used to mimic the original behaviour by explicitly
+# adding the arguments that we want to pass through to the trainer from
+# the command line.
+class passthroughTrainerArgs():
+    def add_args(self, parser):
+        parser.add_argument(
+            "--gpus",
+            type=str,
+            default="",
+        )
+
+    def trainer_kwargs(self, parsed: argparse.Namespace) -> dict:
+        kwargs = dict()
+        if hasattr(parsed, "gpus"):
+            kwargs["devices"] = getattr(parsed, "gpus")
+        return kwargs
 
 
 def nondefault_trainer_args(opt):
-    parser = argparse.ArgumentParser()
-    parser = Trainer.add_argparse_args(parser)
+    parser = get_parser() #argparse.ArgumentParser()
     args = parser.parse_args([])
     return sorted(k for k in vars(args) if getattr(opt, k) != getattr(args, k))
-
 
 class WrappedDataset(Dataset):
     """Wraps an arbitrary object with __len__ and __getitem__ into a pytorch dataset"""
@@ -271,7 +287,7 @@ class SetupCallback(Callback):
                     os.makedirs(os.path.join(self.ckptdir, 'trainstep_checkpoints'), exist_ok=True)
             print("Project config")
             print(OmegaConf.to_yaml(self.config))
-            if MULTINODE_HACKS:
+            if MULTINODE_AWS_SLURM_HACKS:
                 import time
                 time.sleep(5)
             OmegaConf.save(self.config,
@@ -284,7 +300,7 @@ class SetupCallback(Callback):
 
         else:
             # ModelCheckpoint callback created log directory --- remove it
-            if not MULTINODE_HACKS and not self.resume and os.path.exists(self.logdir):
+            if not MULTINODE_AWS_SLURM_HACKS and not self.resume and os.path.exists(self.logdir):
                 dst, name = os.path.split(self.logdir)
                 dst = os.path.join(dst, "child_runs", name)
                 os.makedirs(os.path.split(dst)[0], exist_ok=True)
@@ -303,7 +319,7 @@ class ImageLogger(Callback):
         self.batch_freq = batch_frequency
         self.max_images = max_images
         self.logger_log_images = {
-            pl.loggers.TestTubeLogger: self._testtube,
+            pl.loggers.TensorBoardLogger: self._tensorboard,
         }
         self.log_steps = [2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
         if not increase_log_steps:
@@ -316,6 +332,18 @@ class ImageLogger(Callback):
 
     @rank_zero_only
     def _testtube(self, pl_module, images, batch_idx, split):
+        for k in images:
+            grid = torchvision.utils.make_grid(images[k])
+            grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
+
+            tag = f"{split}/{k}"
+            pl_module.logger.experiment.add_image(
+                tag, grid,
+                global_step=pl_module.global_step)
+
+
+    @rank_zero_only
+    def _tensorboard(self, pl_module, images, batch_idx, split):
         for k in images:
             grid = torchvision.utils.make_grid(images[k])
             grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
@@ -389,11 +417,11 @@ class ImageLogger(Callback):
             return True
         return False
 
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         if not self.disabled and (pl_module.global_step > 0 or self.log_first_step):
             self.log_img(pl_module, batch, batch_idx, split="train")
 
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         if not self.disabled and pl_module.global_step > 0:
             self.log_img(pl_module, batch, batch_idx, split="val")
         if hasattr(pl_module, 'calibrate_grad_norm'):
@@ -405,13 +433,13 @@ class CUDACallback(Callback):
     # see https://github.com/SeanNaren/minGPT/blob/master/mingpt/callback.py
     def on_train_epoch_start(self, trainer, pl_module):
         # Reset the memory use counter
-        torch.cuda.reset_peak_memory_stats(trainer.root_gpu)
-        torch.cuda.synchronize(trainer.root_gpu)
+        torch.cuda.reset_peak_memory_stats(trainer.strategy.root_device.index)
+        torch.cuda.synchronize(trainer.strategy.root_device.index)
         self.start_time = time.time()
 
     def on_train_epoch_end(self, trainer, pl_module, outputs):
-        torch.cuda.synchronize(trainer.root_gpu)
-        max_memory = torch.cuda.max_memory_allocated(trainer.root_gpu) / 2 ** 20
+        torch.cuda.synchronize(trainer.strategy.root_device.index)
+        max_memory = torch.cuda.max_memory_allocated(trainer.strategy.root_device.index) / 2 ** 20
         epoch_time = time.time() - self.start_time
 
         try:
@@ -575,9 +603,10 @@ if __name__ == "__main__":
     sys.path.append(os.getcwd())
 
     parser = get_parser()
-    parser = Trainer.add_argparse_args(parser)
-
+    passthrough_args = passthroughTrainerArgs()
+    passthrough_args.add_args(parser)
     opt, unknown = parser.parse_known_args()
+
     if opt.name and opt.resume:
         raise ValueError(
             "-n/--name and -r/--resume cannot be specified both."
@@ -627,18 +656,24 @@ if __name__ == "__main__":
         lightning_config = config.pop("lightning", OmegaConf.create())
         # merge trainer cli with config
         trainer_config = lightning_config.get("trainer", OmegaConf.create())
-        # default to ddp
-        trainer_config["accelerator"] = "ddp"
+
+        # default to ddp, as of lightning 1.7 ddp cannot be used as an
+        # accelerator and must be set as a 'strategy'
+        trainer_config["strategy"] = "ddp"
         for k in nondefault_trainer_args(opt):
             trainer_config[k] = getattr(opt, k)
         if not "gpus" in trainer_config:
-            del trainer_config["accelerator"]
+            del trainer_config["strategy"]
             cpu = True
         else:
             gpuinfo = trainer_config["gpus"]
+            trainer_config["accelerator"] = "gpu"
+            trainer_config["devices"] = gpuinfo
             print(f"Running on GPUs {gpuinfo}")
             cpu = False
+
         trainer_opt = argparse.Namespace(**trainer_config)
+
         lightning_config.trainer = trainer_config
 
         # model
@@ -649,24 +684,15 @@ if __name__ == "__main__":
 
         # default logger configs
         default_logger_cfgs = {
-            "wandb": {
-                "target": "pytorch_lightning.loggers.WandbLogger",
+            "tensorboard": {
+                "target": "pytorch_lightning.loggers.TensorBoardLogger",
                 "params": {
-                    "name": nowname,
-                    "save_dir": logdir,
-                    "offline": opt.debug,
-                    "id": nowname,
-                }
-            },
-            "testtube": {
-                "target": "pytorch_lightning.loggers.TestTubeLogger",
-                "params": {
-                    "name": "testtube",
+                    "name": "tensorboard",
                     "save_dir": logdir,
                 }
-            },
+            }
         }
-        default_logger_cfg = default_logger_cfgs["testtube"]
+        default_logger_cfg = default_logger_cfgs["tensorboard"]
         if "logger" in lightning_config:
             logger_cfg = lightning_config.logger
         else:
@@ -771,7 +797,7 @@ if __name__ == "__main__":
         if not lightning_config.get("find_unused_parameters", True):
             from pytorch_lightning.plugins import DDPPlugin
             trainer_kwargs["plugins"].append(DDPPlugin(find_unused_parameters=False))
-        if MULTINODE_HACKS:
+        if MULTINODE_AWS_SLURM_HACKS:
             # disable resume from hpc ckpts
             # NOTE below only works in later versions
             # from pytorch_lightning.plugins.environments import SLURMEnvironment
@@ -780,7 +806,11 @@ if __name__ == "__main__":
             from pytorch_lightning.trainer.connectors.checkpoint_connector import CheckpointConnector
             setattr(CheckpointConnector, "hpc_resume_path", None)
 
-        trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
+
+        additional_kwargs = passthrough_args.trainer_kwargs(opt)
+        trainer_kwargs.update(additional_kwargs)
+          
+        trainer = Trainer(**trainer_kwargs)
         trainer.logdir = logdir  ###
 
         # data
@@ -851,7 +881,7 @@ if __name__ == "__main__":
         if not opt.no_test and not trainer.interrupted:
             trainer.test(model, data)
     except RuntimeError as err:
-        if MULTINODE_HACKS:
+        if MULTINODE_AWS_SLURM_HACKS:
             import requests
             import datetime
             import os
