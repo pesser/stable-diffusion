@@ -156,6 +156,7 @@ class passthroughTrainerArgs():
             type=str,
             default="",
         )
+        return parser
 
     def trainer_kwargs(self, parsed: argparse.Namespace) -> dict:
         kwargs = dict()
@@ -191,7 +192,7 @@ class rayWrapper():
         import ray
         ray.init(runtime_env=runtime_env, num_gpus=ngpu, log_to_driver=True)
 
-        train_with_gpus = self._remote.options(num_gpus=ngpu) 
+        train_with_gpus = self._remote.options(num_gpus=ngpu)
         ref = train_with_gpus.remote(trainer, model, data)
         ray.get(ref)
 
@@ -199,6 +200,7 @@ class rayWrapper():
 
 def nondefault_trainer_args(opt):
     parser = get_parser() #argparse.ArgumentParser() this looks like a bug.
+    parser = passthroughTrainerArgs().add_args(parser)
     args = parser.parse_args([])
     return sorted(k for k in vars(args) if getattr(opt, k) != getattr(args, k))
 
@@ -717,6 +719,7 @@ if __name__ == "__main__":
         trainer_config["strategy"] = "ddp"
         for k in nondefault_trainer_args(opt):
             trainer_config[k] = getattr(opt, k)
+
         if not "gpus" in trainer_config:
             del trainer_config["strategy"]
             cpu = True
@@ -852,6 +855,11 @@ if __name__ == "__main__":
         if not lightning_config.get("find_unused_parameters", True):
             from pytorch_lightning.plugins import DDPPlugin
             trainer_kwargs["plugins"].append(DDPPlugin(find_unused_parameters=False))
+
+        for attr in ["accelerator", "strategy"]:
+            if hasattr(trainer_opt, attr):
+                trainer_kwargs[attr] = getattr(trainer_opt, attr)
+
         if MULTINODE_AWS_SLURM_HACKS:
             # disable resume from hpc ckpts
             # NOTE below only works in later versions
@@ -864,7 +872,9 @@ if __name__ == "__main__":
 
         additional_kwargs = passthrough_args.trainer_kwargs(opt)
         trainer_kwargs.update(additional_kwargs)
-          
+
+        print(f"Trainer kwargs:\n{trainer_kwargs}")
+
         trainer = Trainer(**trainer_kwargs)
         trainer.logdir = logdir  ###
 
