@@ -4,6 +4,7 @@ import time
 import torch
 import torchvision
 import pytorch_lightning as pl
+import ray
 
 from packaging import version
 from omegaconf import OmegaConf
@@ -34,6 +35,25 @@ def get_parser(**parser_kwargs):
             raise argparse.ArgumentTypeError("Boolean value expected.")
 
     parser = argparse.ArgumentParser(**parser_kwargs)
+
+    parser.add_argument(
+        "--ray",
+        type=bool,
+        const=True,
+        default=False,
+        nargs="?",
+        help="set to use ray.io"
+    )
+
+    parser.add_argument(
+        "--ray-environment",
+        type=str,
+        const=True,
+        default="",
+        nargs="?",
+        help="conda environment file to use with ray.init",
+    )
+
     parser.add_argument(
         "-n",
         "--name",
@@ -144,8 +164,41 @@ class passthroughTrainerArgs():
         return kwargs
 
 
+class rayWrapper():
+    def __init__(self, args):
+        self.use_ray = False
+        self.ray_env = "environment.yaml"
+        if args.ray:
+            self.use_ray = True
+            self.ray_env = args.ray_environment
+
+    @ray.remote
+    def _remote(trainer, model, data):
+        trainer.fit(model, data)
+
+    def train(self, trainer, model, data):
+        if not self.use_ray:
+            trainer.fit(model, data)
+            return
+        runtime_env = {
+            "config": {"setup_timeout_seconds": 3600},
+            "conda": self.ray_env,
+            "env_vars": {}
+        }
+        ngpu=0
+        if os.environ.get("CUDA_VISIBLE_DEVICES") is not None:
+            ngpu=len(os.environ.get("CUDA_VISIBLE_DEVICES").split(","))
+        import ray
+        ray.init(runtime_env=runtime_env, num_gpus=ngpu, log_to_driver=True)
+
+        train_with_gpus = self._remote.options(num_gpus=ngpu) 
+        ref = train_with_gpus.remote(trainer, model, data)
+        ray.get(ref)
+
+
+
 def nondefault_trainer_args(opt):
-    parser = get_parser() #argparse.ArgumentParser()
+    parser = get_parser() #argparse.ArgumentParser() this looks like a bug.
     args = parser.parse_args([])
     return sorted(k for k in vars(args) if getattr(opt, k) != getattr(args, k))
 
@@ -607,6 +660,8 @@ if __name__ == "__main__":
     passthrough_args.add_args(parser)
     opt, unknown = parser.parse_known_args()
 
+    rayRunner = rayWrapper(opt)
+
     if opt.name and opt.resume:
         raise ValueError(
             "-n/--name and -r/--resume cannot be specified both."
@@ -873,7 +928,7 @@ if __name__ == "__main__":
         # run
         if opt.train:
             try:
-                trainer.fit(model, data)
+                rayRunner.train(trainer, model, data)
             except Exception:
                 if not opt.debug:
                     melk()

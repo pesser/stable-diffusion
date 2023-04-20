@@ -14,7 +14,6 @@ dependencies:
   - numpy=1.23.5
   - pip
   - pip:
-    - 'jsonargparse[signatures]==4.20.1'
     - albumentations==0.4.3
     - opencv-python==4.5.4.58
     - pudb==2019.2
