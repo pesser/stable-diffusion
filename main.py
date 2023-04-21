@@ -869,7 +869,6 @@ if __name__ == "__main__":
             from pytorch_lightning.trainer.connectors.checkpoint_connector import CheckpointConnector
             setattr(CheckpointConnector, "hpc_resume_path", None)
 
-
         additional_kwargs = passthrough_args.trainer_kwargs(opt)
         trainer_kwargs.update(additional_kwargs)
 
