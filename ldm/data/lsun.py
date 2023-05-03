@@ -12,10 +12,14 @@ class LSUNBase(Dataset):
                  data_root,
                  size=None,
                  interpolation="bicubic",
-                 flip_p=0.5
+                 flip_p=0.5,
+                 working_directory=None
                  ):
         self.data_paths = txt_file
         self.data_root = data_root
+        if working_directory is not None:
+            self.data_paths = os.path.join(working_directory, self.data_paths)
+            self.data_root = os.path.join(working_directory, self.data_root)
         with open(self.data_paths, "r") as f:
             self.image_paths = f.read().splitlines()
         self._length = len(self.image_paths)

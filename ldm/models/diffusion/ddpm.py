@@ -75,6 +75,7 @@ class DDPM(pl.LightningModule):
                  logvar_init=0.,
                  make_it_fit=False,
                  ucg_training=None,
+                 learning_rate=None,
                  ):
         super().__init__()
         assert parameterization in ["eps", "x0"], 'currently only supporting "eps" and "x0"'
@@ -121,6 +122,8 @@ class DDPM(pl.LightningModule):
         self.ucg_training = ucg_training or dict()
         if self.ucg_training:
             self.ucg_prng = np.random.RandomState()
+
+        self.learning_rate = None
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
@@ -496,6 +499,7 @@ class LatentDiffusion(DDPM):
                  conditioning_key=None,
                  scale_factor=1.0,
                  scale_by_std=False,
+                 learning_rate=None,
                  *args, **kwargs):
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
         self.scale_by_std = scale_by_std
@@ -529,6 +533,9 @@ class LatentDiffusion(DDPM):
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys)
             self.restarted_from_ckpt = True
+
+        print(f"LatentDiffusion: learnign rate {learning_rate}")
+        self.learning_rate = learning_rate
 
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
@@ -1395,6 +1402,7 @@ class LatentDiffusion(DDPM):
         return log
 
     def configure_optimizers(self):
+        print(f"CONFIGURE OPTIMIZERS: lr: {self.learning_rate}")
         lr = self.learning_rate
         params = list(self.model.parameters())
         if self.cond_stage_trainable:

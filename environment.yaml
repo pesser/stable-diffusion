@@ -9,9 +9,9 @@ dependencies:
   - pytorch-cuda=11.8
   - torchvision
   - tensorboard
-  - lightning=2.0.1
   - pytorch-lightning=2.0.1
   - numpy=1.23.5
+  - tabulate
   - pip
   - pip:
     - albumentations==0.4.3
