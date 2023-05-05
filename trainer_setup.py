@@ -223,9 +223,10 @@ class UseLightningTrainer(TrainerBase):
 
 
 class UseRayLightningTrainer(TrainerBase):
-    def __init__(self, ray_env, trainer_kwargs, model_config, learning_rate, last_chkpt_path, logdir, debug):
+    def __init__(self, ray_env, lightning_config, trainer_kwargs, model_config, learning_rate, last_chkpt_path, logdir, debug):
         super().__init__(trainer_kwargs, model_config, learning_rate, last_chkpt_path, logdir, debug)
         self.__ray_env = ray_env
+        self.__lightning_config = lightning_config
         self.__ray_initialized = False
      
     def __ray_init(self):
@@ -253,25 +254,15 @@ class UseRayLightningTrainer(TrainerBase):
             .fit_params(datamodule=data)
             .build()
         )
-
-        print(f"lr should be set to {self._learning_rate}")
-        # need to set learning rate
-
-        # TODO - set learning rate.
-
-        print(f"lightning config {lightning_config}")
-  
-        scaling_config = ScalingConfig(num_workers=16, use_gpu=True)
-
-        # sort out how to set learning rate
  
-        run_config = RunConfig(
-            name=None,
-            #local_dir=self._logdir,
-            verbose=3,
-            log_to_file=True,
-            #checkpoint_config=None, # handled via trainer callbacks above.
-        )
+        # read the scaling and run configs from the lightning block
+        # of the config file.
+        scaling_config = instantiate_from_config(self.__lightning_config.get("scaling_config", OmegaConf.create()))
+
+        run_config = instantiate_from_config(self.__lightning_config.get("run_config", OmegaConf.create()))
+
+        print(f"scaling config {scaling_config}")
+        print(f"run config {run_config}")
 
         trainer = LightningTrainer(
             lightning_config=lightning_config,

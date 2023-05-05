@@ -293,7 +293,7 @@ if __name__ == "__main__":
         last_chkpt_path = os.path.join(ckptdir, "last.ckpt")
 
         if opt.ray_environment != "":
-            trainer = setup.UseRayLightningTrainer(opt.ray_environment, trainer_kwargs, model_config, learning_rate, last_chkpt_path, logdir, opt.debug)
+            trainer = setup.UseRayLightningTrainer(opt.ray_environment, lightning_config, trainer_kwargs, model_config, learning_rate, last_chkpt_path, logdir, opt.debug)
         else:
             trainer = setup.UseLightningTrainer(trainer_kwargs, model_config, learning_rate, last_chkpt_path, logdir, opt.debug)
 

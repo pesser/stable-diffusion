@@ -45,7 +45,7 @@ model:
       params:
         embed_dim: 4
         monitor: "val/rec_loss"
-        ckpt_path: "/home/cnicolaou/github.com/cloduengio/stable-diffusion/models/first_stage_models/kl-f8/model.ckpt"
+        ckpt_path: "/home/cnicolaou/github.com/cloudengio/stable-diffusion/models/first_stage_models/kl-f8/model.ckpt"
         ddconfig:
           double_z: True
           z_channels: 4
@@ -71,15 +71,26 @@ data:
     train:
       target: ldm.data.lsun.LSUNChurchesTrain
       params:
-        working_directory: /home/cnicolaou/github.com/cloduengio/stable-diffusion/
+        working_directory: /home/cnicolaou/github.com/cloudengio/stable-diffusion/
         size: 256
     validation:
       target: ldm.data.lsun.LSUNChurchesValidation
       params:
-        working_directory: /home/cnicolaou/github.com/cloduengio/stable-diffusion/
+        working_directory: /home/cnicolaou/github.com/cloudengio/stable-diffusion/
         size: 256
 
 lightning:
+  scaling_config:
+    target: ray.air.ScalingConfig
+    params:
+      num_workers: 2
+      use_gpu: Tr
+  run_config:
+    target: ray.air.RunConfig
+    params:
+      verbose: 2
+      log_to_file: True
+
   callbacks:
     image_logger:
       target: main.ImageLogger
@@ -90,4 +101,3 @@ lightning:
 
   trainer:
     benchmark: True
-    gpus: 0,1,2,3
